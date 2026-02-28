@@ -1,4 +1,4 @@
-// Vercel Serverless Function — Gemini AI 뉴스 인사이트
+// Vercel Serverless Function — Claude AI 뉴스 인사이트
 // POST /api/news/insights  body: { articles: [{ title, summary, date, source, publisher }] }
 
 export default async function handler(req, res) {
@@ -8,9 +8,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'Gemini API 키가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: 'Anthropic API 키가 설정되지 않았습니다. Vercel 환경변수에 ANTHROPIC_API_KEY를 추가해주세요.' });
   }
 
   try {
@@ -25,8 +25,7 @@ export default async function handler(req, res) {
       `${i + 1}. [${a.source}] ${a.title} (${a.date}) - ${a.publisher}\n   ${a.summary || '요약 없음'}`
     ).join('\n');
 
-    const prompt = `당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다.
-아래 수집된 최신 뉴스 기사들을 분석하고, 마케팅 관점에서 인사이트를 제공해주세요.
+    const userMessage = `아래 수집된 최신 뉴스 기사들을 분석하고, 마케팅 관점에서 인사이트를 제공해주세요.
 
 ## 수집된 기사 목록
 ${articleList}
@@ -47,41 +46,34 @@ ${articleList}
 ### 📊 전체 동향
 - 현재 슈퍼레이스/모터스포츠 업계의 전반적 분위기를 2~3문장으로 정리`;
 
-    // Gemini API 호출 (1.5-flash → 2.0-flash 순으로 시도)
-    const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
-    let response = null;
-    let lastError = '';
+    // Claude API 호출
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 2048,
+        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다. 수집된 뉴스를 분석하고 마케팅 관점의 실질적 인사이트를 제공합니다.',
+        messages: [
+          { role: 'user', content: userMessage },
+        ],
+      }),
+    });
 
-    for (const model of models) {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-      response = await fetch(geminiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
-          },
-        }),
-      });
-
-      if (response.ok) break;
-
-      lastError = await response.text();
-      console.error(`Gemini ${model} error (${response.status}):`, lastError);
-      response = null; // reset for fallback
-    }
-
-    if (!response || !response.ok) {
-      return res.status(500).json({ error: `Gemini API 오류: ${lastError || 'all models failed'}` });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Claude API error:', response.status, errText);
+      return res.status(response.status).json({ error: `Claude API 오류 (${response.status}): ${errText}` });
     }
 
     const data = await response.json();
 
-    // 응답에서 텍스트 추출
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Claude 응답에서 텍스트 추출
+    const text = data.content?.[0]?.text || '';
 
     if (!text) {
       return res.status(500).json({ error: 'AI 응답을 생성하지 못했습니다.' });

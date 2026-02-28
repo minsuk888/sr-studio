@@ -216,7 +216,7 @@ export default function News() {
       })
       .catch((err) => {
         console.error('AI 인사이트 실패:', err);
-        setAiInsight('AI 인사이트 생성에 실패했습니다. Gemini API 키가 Vercel 환경변수에 설정되어 있는지 확인해주세요.');
+        setAiInsight('AI 인사이트 생성에 실패했습니다. Anthropic API 키가 Vercel 환경변수에 설정되어 있는지 확인해주세요.');
       })
       .finally(() => setIsGeneratingInsight(false));
   };
@@ -302,7 +302,7 @@ export default function News() {
             {isGeneratingInsight ? (
               <div className="flex items-center justify-center py-8 gap-3">
                 <Loader className="w-5 h-5 animate-spin text-amber-500" />
-                <span className="text-sm text-slate-500">Gemini AI가 {newsArticles.length}개 기사를 분석하고 있습니다...</span>
+                <span className="text-sm text-slate-500">Claude AI가 {newsArticles.length}개 기사를 분석하고 있습니다...</span>
               </div>
             ) : (
               <div dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }} />
