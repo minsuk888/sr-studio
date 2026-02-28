@@ -181,17 +181,30 @@ export default function Dashboard() {
     return `${raw.toLocaleString('ko-KR')}만`;
   }, [snsOverview]);
 
-  // Top 5 active tasks
-  const topTasks = useMemo(() => {
-    const active = tasks.filter((t) => t.status !== 'done');
-    active.sort((a, b) => {
-      const statusOrder = { 'in-progress': 0, todo: 1 };
-      const orderDiff = (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2);
-      if (orderDiff !== 0) return orderDiff;
-      return new Date(a.deadline || '2099-12-31') - new Date(b.deadline || '2099-12-31');
+  // 담당자별 업무 그룹화
+  const tasksByAssignee = useMemo(() => {
+    const grouped = {};
+    members.forEach((m) => {
+      grouped[m.id] = { member: m, tasks: [] };
     });
-    return active.slice(0, 5);
-  }, [tasks]);
+    // 미완료 업무만 그룹화
+    tasks
+      .filter((t) => t.status !== 'done')
+      .sort((a, b) => {
+        const statusOrder = { 'in-progress': 0, todo: 1 };
+        const orderDiff = (statusOrder[a.status] ?? 2) - (statusOrder[b.status] ?? 2);
+        if (orderDiff !== 0) return orderDiff;
+        return new Date(a.deadline || '2099-12-31') - new Date(b.deadline || '2099-12-31');
+      })
+      .forEach((t) => {
+        if (t.assignee && grouped[t.assignee]) {
+          grouped[t.assignee].tasks.push(t);
+        }
+      });
+    return Object.values(grouped)
+      .filter((g) => g.tasks.length > 0)
+      .sort((a, b) => b.tasks.length - a.tasks.length);
+  }, [tasks, members]);
 
   // Latest 3 news
   const latestNews = useMemo(
@@ -262,51 +275,84 @@ export default function Dashboard() {
 
       {/* BOTTOM GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* TASK SUMMARY */}
+        {/* 담당자별 업무 현황 */}
         <div className="lg:col-span-3 bg-white rounded-xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2">
               <CalendarClock className="w-4.5 h-4.5 text-brand-500" />
-              주요 업무 현황
+              담당자별 업무 현황
             </h2>
-            <span className="text-xs text-slate-400">상위 5건</span>
+            <span className="text-xs text-slate-400">진행 중 · 예정</span>
           </div>
 
-          <div className="space-y-3">
-            {topTasks.map((task) => {
-              const assigneeName = members.find((m) => m.id === task.assignee)?.name ?? '-';
-              const p = priorityConfig[task.priority];
-              const s = statusConfig[task.status];
-              const d = deadlineBadge(task.deadline);
+          <div className="space-y-4">
+            {tasksByAssignee.map(({ member, tasks: memberTasks }) => {
+              const avgProgress =
+                memberTasks.length > 0
+                  ? Math.round(memberTasks.reduce((s, t) => s + t.progress, 0) / memberTasks.length)
+                  : 0;
+              const inProgressCount = memberTasks.filter((t) => t.status === 'in-progress').length;
 
               return (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-4 p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100"
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${p.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-700 truncate">{task.title}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{assigneeName}</p>
-                  </div>
-                  <div className="w-24 shrink-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] font-medium text-slate-500">{task.progress}%</span>
+                <div key={member.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                  {/* 담당자 헤더 */}
+                  <div className="flex items-center gap-3 px-4 py-3 bg-slate-50/80">
+                    <span className="text-xl">{member.avatar}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-700">{member.name}</p>
+                        <span className="text-[10px] text-slate-400">{member.role}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5">
+                        <span className="text-[11px] text-slate-400">
+                          업무 {memberTasks.length}건
+                        </span>
+                        {inProgressCount > 0 && (
+                          <span className="text-[11px] text-blue-500 font-medium">
+                            진행 중 {inProgressCount}건
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <ProgressBar value={task.progress} />
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-medium text-slate-500">평균 진행률</p>
+                      <p className="text-lg font-bold text-slate-700">{avgProgress}%</p>
+                    </div>
                   </div>
-                  <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-md ${d.cls}`}>
-                    {d.label}
-                  </span>
-                  <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-md ${p.bg} ${p.text}`}>
-                    {p.label}
-                  </span>
-                  <span className={`shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-md ${s.bg} ${s.text}`}>
-                    {s.label}
-                  </span>
+
+                  {/* 업무 목록 */}
+                  <div className="divide-y divide-slate-50">
+                    {memberTasks.map((task) => {
+                      const p = priorityConfig[task.priority];
+                      const s = statusConfig[task.status];
+                      const d = deadlineBadge(task.deadline);
+                      return (
+                        <div
+                          key={task.id}
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50/50 transition-colors"
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.dot}`} />
+                          <p className="flex-1 text-sm text-slate-600 truncate">{task.title}</p>
+                          <div className="w-20 shrink-0">
+                            <ProgressBar value={task.progress} />
+                          </div>
+                          <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${d.cls}`}>
+                            {d.label}
+                          </span>
+                          <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${s.bg} ${s.text}`}>
+                            {s.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
+
+            {tasksByAssignee.length === 0 && (
+              <p className="text-sm text-slate-400 text-center py-6">진행 중인 업무가 없습니다</p>
+            )}
           </div>
         </div>
 

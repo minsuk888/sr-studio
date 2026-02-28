@@ -1,25 +1,38 @@
 import { Routes, Route } from 'react-router-dom';
+import { AuthProvider, ProtectedRoute } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import Layout from './components/Layout';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Calendar from './pages/Calendar';
 import Analytics from './pages/Analytics';
 import News from './pages/News';
+import Settings from './pages/Settings';
 
 function App() {
   return (
-    <AppProvider>
+    <AuthProvider>
       <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/calendar" element={<Calendar />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/news" element={<News />} />
+        <Route path="/login" element={<Login />} />
+        <Route element={<ProtectedRoute />}>
+          <Route
+            element={
+              <AppProvider>
+                <Layout />
+              </AppProvider>
+            }
+          >
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/news" element={<News />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
         </Route>
       </Routes>
-    </AppProvider>
+    </AuthProvider>
   );
 }
 

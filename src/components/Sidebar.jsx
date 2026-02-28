@@ -1,15 +1,18 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   ListTodo,
   CalendarDays,
   BarChart3,
   Newspaper,
+  Settings,
   Flag,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '대시보드' },
@@ -17,10 +20,18 @@ const navItems = [
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
   { to: '/analytics', icon: BarChart3, label: 'SNS 분석' },
   { to: '/news', icon: Newspaper, label: '뉴스 스크랩' },
+  { to: '/settings', icon: Settings, label: '관리자 설정' },
 ];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <aside
@@ -62,13 +73,22 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Collapse button */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center py-4 border-t border-white/10 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer bg-transparent"
-      >
-        {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-      </button>
+      {/* Bottom: Logout + Collapse */}
+      <div className="border-t border-white/10">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-6 py-3 text-sm text-slate-400 hover:text-red-400 hover:bg-white/5 transition-colors cursor-pointer bg-transparent"
+        >
+          <LogOut className="w-4.5 h-4.5 shrink-0" />
+          {!collapsed && <span className="whitespace-nowrap">로그아웃</span>}
+        </button>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center justify-center w-full py-3 border-t border-white/10 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer bg-transparent"
+        >
+          {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </button>
+      </div>
     </aside>
   );
 }
