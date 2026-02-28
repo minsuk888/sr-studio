@@ -108,6 +108,7 @@ export default function News() {
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
+  const [insightExpanded, setInsightExpanded] = useState(false);
 
   const addKeyword = useCallback(() => {
     const kw = newKeywordInput.trim();
@@ -305,7 +306,25 @@ export default function News() {
                 <span className="text-sm text-slate-500">Claude AI가 {newsArticles.length}개 기사를 분석하고 있습니다...</span>
               </div>
             ) : (
-              <div dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }} />
+              <div className="relative">
+                <div
+                  className={`overflow-hidden transition-all duration-300 ${insightExpanded ? '' : 'max-h-[480px]'}`}
+                  dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+                />
+                {!insightExpanded && aiInsight && aiInsight.length > 800 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
+                )}
+                {aiInsight && aiInsight.length > 800 && (
+                  <div className="flex justify-center mt-2 pt-1">
+                    <button
+                      onClick={() => setInsightExpanded(!insightExpanded)}
+                      className="text-xs font-medium text-amber-600 hover:text-amber-700 px-4 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
+                    >
+                      {insightExpanded ? '접기 ▲' : '더보기 ▼'}
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

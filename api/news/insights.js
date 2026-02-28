@@ -56,7 +56,7 @@ ${articleList}
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다. 수집된 뉴스를 분석하고 마케팅 관점의 실질적 인사이트를 제공합니다.',
         messages: [
           { role: 'user', content: userMessage },
