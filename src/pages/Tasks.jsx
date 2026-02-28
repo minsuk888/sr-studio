@@ -54,6 +54,9 @@ export default function Tasks() {
   const [editingMember, setEditingMember] = useState(null);
   const [memberForm, setMemberForm] = useState({ name: '', role: '', avatar: '👤', email: '' });
 
+  // ---- delete confirmation state ----
+  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'task'|'member', id, name }
+
   // ---------- helpers ----------
   const getMember = (id) => members.find((m) => m.id === id);
 
@@ -179,7 +182,7 @@ export default function Tasks() {
             <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
               <Pencil className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => deleteTask(task.id)} className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
+            <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -270,7 +273,7 @@ export default function Tasks() {
               <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                 <Pencil className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => deleteTask(task.id)} className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
+              <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -280,74 +283,7 @@ export default function Tasks() {
     </div>
   );
 
-  // ---------- task modal ----------
-  const TaskModal = () => {
-    if (!modalOpen) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 z-10">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">{editingTask ? '업무 수정' : '새 업무 추가'}</h3>
-            <button onClick={closeModal} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">제목</label>
-              <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="업무 제목을 입력하세요" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">담당자</label>
-                <select value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                  <option value="">선택하세요</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.avatar} {m.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">우선순위</label>
-                <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                  <option value="high">높음</option>
-                  <option value="medium">보통</option>
-                  <option value="low">낮음</option>
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">상태</label>
-                <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                  <option value="todo">할 일</option>
-                  <option value="in-progress">진행 중</option>
-                  <option value="done">완료</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">마감일</label>
-                <input type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">진행률 <span className="text-brand-500 font-bold">{formData.progress}%</span></label>
-              <input type="range" min="0" max="100" value={formData.progress} onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })} className="w-full accent-brand-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">메모</label>
-              <textarea rows={3} value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} placeholder="업무 관련 메모를 작성하세요" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition resize-none" />
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-            <button onClick={closeModal} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">취소</button>
-            <button onClick={handleSave} className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 transition-colors cursor-pointer">{editingTask ? '수정' : '저장'}</button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // TaskModal and MemberModal are rendered inline (not as inner components) to preserve input focus
 
   // ---------- member modal handlers ----------
   const avatarOptions = ['👤', '🧑‍💼', '👩‍💻', '🧑‍🎨', '🎬', '📊', '📰', '🧑‍🔬', '👨‍💻', '👩‍🎤', '🧑‍🚀', '🎯'];
@@ -379,54 +315,26 @@ export default function Tasks() {
     closeMemberModal();
   };
 
-  const handleDeleteMember = (id) => {
-    if (filterMember === id) setFilterMember(null);
-    deleteMember(id);
+  const handleDeleteMember = (member) => {
+    setConfirmDelete({ type: 'member', id: member.id, name: member.name });
   };
 
-  // ---------- member modal ----------
-  const MemberModal = () => {
-    if (!memberModalOpen) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/40" onClick={closeMemberModal} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 z-10">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-800">{editingMember ? '팀원 수정' : '새 팀원 등록'}</h3>
-            <button onClick={closeMemberModal} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">프로필 아이콘</label>
-              <div className="flex flex-wrap gap-2">
-                {avatarOptions.map((av) => (
-                  <button key={av} type="button" onClick={() => setMemberForm({ ...memberForm, avatar: av })} className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all cursor-pointer ${memberForm.avatar === av ? 'bg-brand-100 ring-2 ring-brand-500 scale-110' : 'bg-slate-100 hover:bg-slate-200'}`}>{av}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
-              <input type="text" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="팀원 이름" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">직책 / 역할</label>
-              <input type="text" value={memberForm.role} onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })} placeholder="예: SNS 매니저" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
-              <input type="email" value={memberForm.email} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} placeholder="email@sr-studio.co.kr" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
-            <button onClick={closeMemberModal} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">취소</button>
-            <button onClick={handleSaveMember} disabled={!memberForm.name.trim() || !memberForm.role.trim()} className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">{editingMember ? '수정' : '등록'}</button>
-          </div>
-        </div>
-      </div>
-    );
+  const handleDeleteTask = (task) => {
+    setConfirmDelete({ type: 'task', id: task.id, name: task.title });
   };
+
+  const confirmDeleteAction = () => {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === 'task') {
+      deleteTask(confirmDelete.id);
+    } else {
+      if (filterMember === confirmDelete.id) setFilterMember(null);
+      deleteMember(confirmDelete.id);
+    }
+    setConfirmDelete(null);
+  };
+
+  // (MemberModal rendered inline below)
 
   // ==================== RENDER ====================
   return (
@@ -497,7 +405,7 @@ export default function Tasks() {
                     <button onClick={() => openEditMemberModal(m)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDeleteMember(m.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
+                    <button onClick={() => handleDeleteMember(m)} className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -519,8 +427,143 @@ export default function Tasks() {
         <ListView />
       )}
 
-      <TaskModal />
-      <MemberModal />
+      {/* ===== Task Modal (inline) ===== */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 z-10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800">{editingTask ? '업무 수정' : '새 업무 추가'}</h3>
+              <button onClick={closeModal} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">제목</label>
+                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="업무 제목을 입력하세요" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">담당자</label>
+                  <select value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
+                    <option value="">선택하세요</option>
+                    {members.map((m) => (
+                      <option key={m.id} value={m.id}>{m.avatar} {m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">우선순위</label>
+                  <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
+                    <option value="high">높음</option>
+                    <option value="medium">보통</option>
+                    <option value="low">낮음</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">상태</label>
+                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
+                    <option value="todo">할 일</option>
+                    <option value="in-progress">진행 중</option>
+                    <option value="done">완료</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">마감일</label>
+                  <input type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">진행률 <span className="text-brand-500 font-bold">{formData.progress}%</span></label>
+                <input type="range" min="0" max="100" value={formData.progress} onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })} className="w-full accent-brand-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">메모</label>
+                <textarea rows={3} value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} placeholder="업무 관련 메모를 작성하세요" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition resize-none" />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+              <button onClick={closeModal} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">취소</button>
+              <button onClick={handleSave} className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 transition-colors cursor-pointer">{editingTask ? '수정' : '저장'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Member Modal (inline) ===== */}
+      {memberModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={closeMemberModal} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 z-10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold text-slate-800">{editingMember ? '팀원 수정' : '새 팀원 등록'}</h3>
+              <button onClick={closeMemberModal} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">프로필 아이콘</label>
+                <div className="flex flex-wrap gap-2">
+                  {avatarOptions.map((av) => (
+                    <button key={av} type="button" onClick={() => setMemberForm({ ...memberForm, avatar: av })} className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all cursor-pointer ${memberForm.avatar === av ? 'bg-brand-100 ring-2 ring-brand-500 scale-110' : 'bg-slate-100 hover:bg-slate-200'}`}>{av}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">이름</label>
+                <input type="text" value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} placeholder="팀원 이름" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">직책 / 역할</label>
+                <input type="text" value={memberForm.role} onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })} placeholder="예: SNS 매니저" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+                <input type="email" value={memberForm.email} onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })} placeholder="email@sr-studio.co.kr" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+              <button onClick={closeMemberModal} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">취소</button>
+              <button onClick={handleSaveMember} disabled={!memberForm.name.trim() || !memberForm.role.trim()} className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer">{editingMember ? '수정' : '등록'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Delete Confirmation Dialog ===== */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDelete(null)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 z-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-7 h-7 text-red-500" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              {confirmDelete.type === 'task' ? '업무 삭제' : '팀원 삭제'}
+            </h3>
+            <p className="text-sm text-slate-500 mb-1">
+              <span className="font-semibold text-slate-700">"{confirmDelete.name}"</span>
+            </p>
+            <p className="text-sm text-slate-500 mb-6">
+              {confirmDelete.type === 'task'
+                ? '이 업무를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.'
+                : '이 팀원을 삭제하시겠습니까? 배정된 업무의 담당자가 해제됩니다.'}
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer">
+                취소
+              </button>
+              <button onClick={confirmDeleteAction} className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors cursor-pointer">
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
