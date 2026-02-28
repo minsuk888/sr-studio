@@ -73,24 +73,35 @@ export const newsService = {
     }
   },
 
-  // ---- 모든 소스에서 뉴스 가져와서 Supabase에 저장 ----
-  async fetchAndSaveAll(query = '슈퍼레이스') {
-    const [naverArticles, googleArticles] = await Promise.all([
-      this.fetchNaverNews(query, 10),
-      this.fetchGoogleNews(query + ' motorsport'),
+  // ---- 여러 키워드로 뉴스 가져와서 Supabase에 저장 ----
+  async fetchByKeywords(keywords = ['슈퍼레이스']) {
+    // 각 키워드별로 네이버 + 구글 동시 호출
+    const fetches = keywords.flatMap((kw) => [
+      this.fetchNaverNews(kw, 10),
+      this.fetchGoogleNews(kw),
     ]);
 
-    const allArticles = [...naverArticles, ...googleArticles];
+    const results = await Promise.all(fetches);
+    const allArticles = results.flat();
+
     if (allArticles.length === 0) return [];
 
-    // 기존 기사 URL 목록 조회 (중복 방지)
+    // URL 기준 중복 제거 (API 결과 내)
+    const seen = new Set();
+    const uniqueArticles = allArticles.filter((a) => {
+      if (!a.url || seen.has(a.url)) return false;
+      seen.add(a.url);
+      return true;
+    });
+
+    // 기존 Supabase 기사 URL 조회 (DB 중복 방지)
     const { data: existing } = await supabase
       .from('news_articles')
       .select('url');
     const existingUrls = new Set((existing || []).map((e) => e.url));
 
     // 새 기사만 필터
-    const newArticles = allArticles.filter((a) => a.url && !existingUrls.has(a.url));
+    const newArticles = uniqueArticles.filter((a) => !existingUrls.has(a.url));
 
     if (newArticles.length > 0) {
       const { error } = await supabase
@@ -101,5 +112,14 @@ export const newsService = {
 
     // 전체 목록 다시 조회
     return this.getAll();
+  },
+
+  // ---- 전체 기사 삭제 ----
+  async deleteAll() {
+    const { error } = await supabase
+      .from('news_articles')
+      .delete()
+      .gt('id', 0);
+    if (error) throw error;
   },
 };
