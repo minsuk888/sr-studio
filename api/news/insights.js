@@ -47,25 +47,35 @@ ${articleList}
 ### 📊 전체 동향
 - 현재 슈퍼레이스/모터스포츠 업계의 전반적 분위기를 2~3문장으로 정리`;
 
-    // Gemini API 호출
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // Gemini API 호출 (1.5-flash → 2.0-flash 순으로 시도)
+    const models = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+    let response = null;
+    let lastError = '';
 
-    const response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        },
-      }),
-    });
+    for (const model of models) {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini API error:', errText);
-      return res.status(response.status).json({ error: `Gemini API 오류: ${response.status}` });
+      response = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          },
+        }),
+      });
+
+      if (response.ok) break;
+
+      lastError = await response.text();
+      console.error(`Gemini ${model} error (${response.status}):`, lastError);
+      response = null; // reset for fallback
+    }
+
+    if (!response || !response.ok) {
+      return res.status(500).json({ error: `Gemini API 오류: ${lastError || 'all models failed'}` });
     }
 
     const data = await response.json();
