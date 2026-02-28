@@ -208,7 +208,7 @@ export const analyticsService = {
       .from('sns_videos')
       .select('*')
       .order('published_at', { ascending: false })
-      .limit(12);
+      .limit(50);
     if (channelIds.length > 0) {
       query = query.in('channel_id', channelIds);
     }
@@ -301,7 +301,7 @@ export const analyticsService = {
     const results = await Promise.allSettled(
       channels.map(async (ch) => {
         const stats = await this.fetchChannelStats(ch.channel_id);
-        const videos = await this.fetchChannelVideos(ch.channel_id, 6);
+        const videos = await this.fetchChannelVideos(ch.channel_id, 12);
         return { channelId: ch.channel_id, stats, videos };
       })
     );

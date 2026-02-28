@@ -230,13 +230,16 @@ export default function Analytics() {
           );
         }
 
-        // 캐시된 영상 불러오기
+        // 캐시된 영상 불러오기 (모든 채널)
+        const allIds = (channelsData || []).map((c) => c.channel_id);
         const ownIds = (channelsData || []).filter((c) => c.is_own).map((c) => c.channel_id);
-        if (ownIds.length > 0) {
-          const videos = await analyticsService.getCachedVideos(ownIds);
+        if (allIds.length > 0) {
+          const videos = await analyticsService.getCachedVideos(allIds);
           setRecentVideos(videos || []);
+        }
 
-          // 성장 차트 데이터 로드
+        // 성장 차트 데이터 로드
+        if (ownIds.length > 0) {
           try {
             const histories = await Promise.all(
               ownIds.map((id) => analyticsService.getChannelStatsHistory(id, 30)),
@@ -699,6 +702,125 @@ export default function Analytics() {
                 <br />
                 매일 새로고침하여 데이터를 수집해주세요.
               </p>
+            </div>
+          )}
+
+          {/* 인게이지먼트 현황 */}
+          {enrichedVideos.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                <Activity size={15} className="text-green-500" />
+                인게이지먼트 현황
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-600 mb-1">평균 조회수</p>
+                  <p className="text-lg font-bold text-blue-700">
+                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.views || 0), 0) / enrichedVideos.length))}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-pink-50 rounded-lg">
+                  <p className="text-xs text-pink-600 mb-1">평균 좋아요</p>
+                  <p className="text-lg font-bold text-pink-700">
+                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.likes || 0), 0) / enrichedVideos.length))}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                  <p className="text-xs text-indigo-600 mb-1">평균 댓글</p>
+                  <p className="text-lg font-bold text-indigo-700">
+                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.comments || 0), 0) / enrichedVideos.length))}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <p className="text-xs text-green-600 mb-1">평균 좋아요율</p>
+                  <p className="text-lg font-bold text-green-700">
+                    {(enrichedVideos.reduce((s, v) => s + v.likeRatio, 0) / enrichedVideos.length).toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+              {/* 인게이지먼트 Top 5 리스트 */}
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-500 mb-2">인게이지먼트 Top 5</p>
+                {[...enrichedVideos]
+                  .sort((a, b) => b.engagementRate - a.engagementRate)
+                  .slice(0, 5)
+                  .map((v, idx) => (
+                    <a
+                      key={v.video_id || v.videoId || idx}
+                      href={`https://youtube.com/watch?v=${v.video_id || v.videoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                        {idx + 1}
+                      </span>
+                      {v.thumbnail && (
+                        <img src={v.thumbnail} alt="" className="w-16 h-10 rounded object-cover flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-700 font-medium truncate group-hover:text-indigo-600 transition-colors">{v.title}</p>
+                        <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
+                          <span><Eye size={10} className="inline mr-0.5" />{formatNumber(v.views)}</span>
+                          <span><ThumbsUp size={10} className="inline mr-0.5" />{formatNumber(v.likes)}</span>
+                          <span><MessageCircle size={10} className="inline mr-0.5" />{formatNumber(v.comments)}</span>
+                        </div>
+                      </div>
+                      <EngagementBadge rate={v.engagementRate} />
+                    </a>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* 최근 콘텐츠 미리보기 */}
+          {enrichedVideos.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Play size={15} className="text-indigo-500" />
+                  최근 콘텐츠
+                </h2>
+                <button
+                  onClick={() => setActiveTab('content')}
+                  className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                >
+                  전체보기 &rarr;
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {enrichedVideos.slice(0, 4).map((video, idx) => (
+                  <a
+                    key={video.video_id || video.videoId || idx}
+                    href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+                  >
+                    <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                      {video.thumbnail && (
+                        <img
+                          src={video.thumbnail}
+                          alt={video.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      )}
+                    </div>
+                    <div className="p-2.5">
+                      <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1.5 group-hover:text-indigo-600 transition-colors leading-snug">
+                        {video.title}
+                      </h3>
+                      <div className="flex items-center justify-between text-[11px] text-gray-400">
+                        <div className="flex items-center gap-1.5">
+                          <span><Eye size={10} className="inline" /> {formatNumber(video.views)}</span>
+                          <EngagementBadge rate={video.engagementRate} />
+                        </div>
+                        <span>{formatFullDate(video.published_at || video.publishedAt)}</span>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
