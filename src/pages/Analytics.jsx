@@ -8,6 +8,11 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
 } from 'recharts';
 import {
   TrendingUp,
@@ -507,6 +512,78 @@ export default function Analytics() {
     return map;
   }, [channels, enrichedVideos]);
 
+  // ---- 게시 시간대 히트맵 데이터 ----
+  const postingHeatmapData = useMemo(() => {
+    const grid = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => ({ count: 0, totalViews: 0, totalEngagement: 0 })),
+    );
+    enrichedVideos.forEach((v) => {
+      const dt = new Date(v.published_at || v.publishedAt);
+      if (isNaN(dt.getTime())) return;
+      const day = (dt.getDay() + 6) % 7; // Mon=0 ... Sun=6
+      const hour = dt.getHours();
+      grid[day][hour].count += 1;
+      grid[day][hour].totalViews += v.views || 0;
+      grid[day][hour].totalEngagement += v.engagementRate || 0;
+    });
+    let maxAvgViews = 0;
+    const processed = grid.map((row) =>
+      row.map((cell) => {
+        const avgViews = cell.count > 0 ? Math.round(cell.totalViews / cell.count) : 0;
+        const avgEngagement = cell.count > 0 ? cell.totalEngagement / cell.count : 0;
+        if (avgViews > maxAvgViews) maxAvgViews = avgViews;
+        return { count: cell.count, avgViews, avgEngagement };
+      }),
+    );
+    return { grid: processed, maxAvgViews };
+  }, [enrichedVideos]);
+
+  // ---- 경쟁사 벤치마킹 레이더 데이터 ----
+  const radarChartData = useMemo(() => {
+    if (competitorChannels.length === 0) return null;
+    const allChs = [...ownChannels, ...competitorChannels];
+    const channelMetrics = allChs.map((ch) => {
+      const stats = channelStats[ch.channel_id] || {};
+      const engagement = channelEngagementMap[ch.channel_id] || 0;
+      const chVideos = enrichedVideos.filter(
+        (v) => (v.channel_id || v.channelId) === ch.channel_id,
+      );
+      const avgLikeRatio =
+        chVideos.length > 0
+          ? chVideos.reduce((s, v) => s + (v.likeRatio || 0), 0) / chVideos.length
+          : 0;
+      return {
+        name: ch.name,
+        isOwn: ch.is_own,
+        subscribers: stats.subscribers || 0,
+        totalViews: stats.totalViews || 0,
+        videoCount: stats.videoCount || 0,
+        engagement,
+        likeRatio: avgLikeRatio,
+      };
+    });
+    const metrics = ['subscribers', 'totalViews', 'videoCount', 'engagement', 'likeRatio'];
+    const metricLabels = {
+      subscribers: '구독자',
+      totalViews: '총 조회수',
+      videoCount: '영상 수',
+      engagement: '인게이지먼트율',
+      likeRatio: '좋아요율',
+    };
+    const maxVals = {};
+    metrics.forEach((m) => {
+      maxVals[m] = Math.max(...channelMetrics.map((c) => c[m]), 1);
+    });
+    const data = metrics.map((m) => {
+      const row = { metric: metricLabels[m] };
+      channelMetrics.forEach((c) => {
+        row[c.name] = Math.round((c[m] / maxVals[m]) * 100);
+      });
+      return row;
+    });
+    return { data, channels: channelMetrics };
+  }, [ownChannels, competitorChannels, channelStats, channelEngagementMap, enrichedVideos]);
+
   // 성장 차트 채널 이름 목록
   const growthChannelNames = useMemo(() => {
     if (growthData.length === 0) return [];
@@ -893,6 +970,42 @@ export default function Analytics() {
               </div>
             </div>
           )}
+
+          {/* 경쟁사 벤치마킹 레이더 차트 */}
+          {radarChartData && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                <Activity size={15} className="text-purple-500" />
+                채널 벤치마킹 비교
+              </h2>
+              <p className="text-xs text-gray-400 mb-4">
+                각 지표는 전체 채널 중 최댓값 대비 백분율(0~100)로 정규화됩니다.
+              </p>
+              <ResponsiveContainer width="100%" height={340}>
+                <RadarChart data={radarChartData.data} cx="50%" cy="50%" outerRadius="72%">
+                  <PolarGrid stroke="#e2e8f0" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  {radarChartData.channels.map((ch, idx) => (
+                    <Radar
+                      key={ch.name}
+                      name={ch.name}
+                      dataKey={ch.name}
+                      stroke={ch.isOwn ? '#ef4444' : CHANNEL_COLORS[(idx + 1) % CHANNEL_COLORS.length]}
+                      fill={ch.isOwn ? '#ef4444' : CHANNEL_COLORS[(idx + 1) % CHANNEL_COLORS.length]}
+                      fillOpacity={ch.isOwn ? 0.25 : 0.1}
+                      strokeWidth={ch.isOwn ? 2.5 : 1.5}
+                    />
+                  ))}
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                    formatter={(value) => [`${value}점`, '']}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       )}
 
@@ -990,6 +1103,77 @@ export default function Analytics() {
                         </div>
                       </a>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 게시 시간대 히트맵 */}
+              {enrichedVideos.length >= 3 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                  <h2 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                    <Clock size={15} className="text-orange-500" />
+                    게시 시간대별 성과 히트맵
+                  </h2>
+                  <p className="text-xs text-gray-400 mb-4">
+                    영상이 게시된 요일/시간대별 평균 조회수를 나타냅니다. 색이 진할수록 성과가 좋습니다.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[640px]">
+                      {/* 시간 라벨 */}
+                      <div className="flex items-center mb-1 ml-10">
+                        {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => (
+                          <div key={h} className="text-[10px] text-gray-400" style={{ width: `${(100 / 24) * 3}%` }}>
+                            {h}시
+                          </div>
+                        ))}
+                      </div>
+                      {/* 히트맵 그리드 */}
+                      {['월', '화', '수', '목', '금', '토', '일'].map((dayLabel, dayIdx) => (
+                        <div key={dayLabel} className="flex items-center gap-0.5 mb-0.5">
+                          <span className="w-8 text-xs text-gray-500 text-right font-medium flex-shrink-0">{dayLabel}</span>
+                          <div className="flex-1 flex gap-px">
+                            {postingHeatmapData.grid[dayIdx].map((cell, hourIdx) => {
+                              const intensity =
+                                postingHeatmapData.maxAvgViews > 0
+                                  ? cell.avgViews / postingHeatmapData.maxAvgViews
+                                  : 0;
+                              const bg =
+                                cell.count === 0
+                                  ? 'bg-gray-50'
+                                  : intensity > 0.8
+                                    ? 'bg-red-500'
+                                    : intensity > 0.6
+                                      ? 'bg-red-400'
+                                      : intensity > 0.4
+                                        ? 'bg-red-300'
+                                        : intensity > 0.2
+                                          ? 'bg-red-200'
+                                          : 'bg-red-100';
+                              const textColor = intensity > 0.6 ? 'text-white' : 'text-gray-600';
+                              return (
+                                <div
+                                  key={hourIdx}
+                                  className={`flex-1 aspect-square rounded-sm ${bg} flex items-center justify-center cursor-default`}
+                                  title={`${dayLabel} ${hourIdx}시: ${cell.count}개 영상, 평균 ${formatNumber(cell.avgViews)} 조회, 인게이지먼트 ${cell.avgEngagement.toFixed(1)}%`}
+                                >
+                                  {cell.count > 0 && (
+                                    <span className={`text-[7px] font-medium ${textColor}`}>{cell.count}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                      {/* 범례 */}
+                      <div className="flex items-center justify-end gap-1.5 mt-3 mr-1">
+                        <span className="text-[10px] text-gray-400">낮음</span>
+                        {['bg-gray-50', 'bg-red-100', 'bg-red-200', 'bg-red-300', 'bg-red-400', 'bg-red-500'].map((c) => (
+                          <div key={c} className={`w-4 h-4 rounded-sm ${c} border border-gray-100`} />
+                        ))}
+                        <span className="text-[10px] text-gray-400">높음</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
