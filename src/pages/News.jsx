@@ -84,9 +84,12 @@ export default function News() {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    newsService.getAll().then((data) => {
-      setNewsArticles(data);
-    }).finally(() => setTimeout(() => setIsRefreshing(false), 600));
+    newsService.fetchAndSaveAll('슈퍼레이스')
+      .then((data) => {
+        if (data && data.length > 0) setNewsArticles(data);
+      })
+      .catch((err) => console.error('뉴스 새로고침 실패:', err))
+      .finally(() => setTimeout(() => setIsRefreshing(false), 800));
   };
 
   const tickerItems = useMemo(() => {
@@ -126,9 +129,9 @@ export default function News() {
           </h1>
           <p className="text-sm text-slate-500 mt-1">슈퍼레이스 &amp; 모터스포츠 관련 최신 뉴스</p>
         </div>
-        <button onClick={handleRefresh} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 transition-colors cursor-pointer shadow-sm">
+        <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm">
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          새로고침
+          {isRefreshing ? '뉴스 수집 중...' : '최신 뉴스 가져오기'}
         </button>
       </div>
 
@@ -226,9 +229,12 @@ export default function News() {
             const isNaver = article.source === 'naver';
             const isBookmarked = bookmarkedIds.includes(article.id);
             return (
-              <div
+              <a
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
                 key={article.id}
-                className={`bg-white rounded-xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer border-l-4 ${isNaver ? 'border-l-green-400' : 'border-l-blue-400'}`}
+                className={`block bg-white rounded-xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer border-l-4 ${isNaver ? 'border-l-green-400' : 'border-l-blue-400'} no-underline`}
                 style={{ animation: `fadeInUp 0.4s ease-out ${index * 0.06}s both` }}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
@@ -250,7 +256,7 @@ export default function News() {
                   <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{article.date}</span>
                   <span className="ml-auto flex items-center gap-1 text-brand-500 hover:text-brand-600 font-medium">기사 보기<ExternalLink className="w-3 h-3" /></span>
                 </div>
-              </div>
+              </a>
             );
           })}
         </div>
