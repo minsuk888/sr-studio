@@ -230,12 +230,16 @@ export default function Analytics() {
           );
         }
 
-        // 캐시된 영상 불러오기 (모든 채널)
+        // 캐시된 영상 + 채널 통계 불러오기 (모든 채널)
         const allIds = (channelsData || []).map((c) => c.channel_id);
         const ownIds = (channelsData || []).filter((c) => c.is_own).map((c) => c.channel_id);
         if (allIds.length > 0) {
-          const videos = await analyticsService.getCachedVideos(allIds);
+          const [videos, latestStats] = await Promise.all([
+            analyticsService.getCachedVideos(allIds),
+            analyticsService.getLatestChannelStats(allIds),
+          ]);
           setRecentVideos(videos || []);
+          setChannelStats(latestStats || {});
         }
 
         // 성장 차트 데이터 로드

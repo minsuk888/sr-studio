@@ -179,6 +179,30 @@ export const analyticsService = {
     if (error) console.error('채널 통계 저장 실패:', error);
   },
 
+  async getLatestChannelStats(channelIds) {
+    if (!channelIds || channelIds.length === 0) return {};
+    // 각 채널의 가장 최근 stats 행을 가져옴
+    const { data, error } = await supabase
+      .from('sns_channel_stats')
+      .select('*')
+      .in('channel_id', channelIds)
+      .order('fetched_date', { ascending: false });
+    if (error) throw error;
+
+    // 채널별로 가장 최근 1행만 취함
+    const statsMap = {};
+    (data || []).forEach((row) => {
+      if (!statsMap[row.channel_id]) {
+        statsMap[row.channel_id] = {
+          subscribers: row.subscribers,
+          totalViews: row.total_views,
+          videoCount: row.video_count,
+        };
+      }
+    });
+    return statsMap;
+  },
+
   async getChannelStatsHistory(channelId, days = 30) {
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - days);
