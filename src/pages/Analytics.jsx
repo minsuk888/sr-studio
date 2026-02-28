@@ -22,6 +22,7 @@ import {
   Play,
   Sparkles,
   Youtube,
+  Instagram,
   MessageCircle,
   Loader,
   Plus,
@@ -86,6 +87,22 @@ function renderInsightText(text) {
 // 색상 팔레트
 const CHANNEL_COLORS = ['#FF0000', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
+// 플랫폼 설정
+const PLATFORM_CONFIG = {
+  youtube: {
+    icon: Youtube, color: '#FF0000', bgColor: 'bg-red-50', textColor: 'text-red-500',
+    borderColor: 'border-red-300', ringColor: 'focus:ring-red-500',
+    label: 'YouTube', contentLabel: '영상', idPlaceholder: '채널 ID (UCxxxxxxx) 또는 @handle',
+    getLink: (v) => `https://youtube.com/watch?v=${v.video_id || v.videoId}`,
+  },
+  instagram: {
+    icon: Instagram, color: '#E4405F', bgColor: 'bg-pink-50', textColor: 'text-pink-500',
+    borderColor: 'border-pink-300', ringColor: 'focus:ring-pink-500',
+    label: 'Instagram', contentLabel: '게시물', idPlaceholder: 'Instagram Business Account ID',
+    getLink: (v) => v.permalink || `https://instagram.com/p/${v.video_id || v.videoId}`,
+  },
+};
+
 // 탭 정의
 const TABS = [
   { key: 'overview', label: '채널 개요', icon: BarChart3 },
@@ -144,6 +161,7 @@ export default function Analytics() {
   // ---- 채널 관리 모달 ----
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [newChannelInput, setNewChannelInput] = useState('');
+  const [newChannelPlatform, setNewChannelPlatform] = useState('youtube');
   const [newChannelIsOwn, setNewChannelIsOwn] = useState(true);
   const [addingChannel, setAddingChannel] = useState(false);
 
@@ -348,7 +366,7 @@ export default function Analytics() {
     if (!cid) return;
     setAddingChannel(true);
     try {
-      const created = await analyticsService.addChannel(cid, 'youtube', newChannelIsOwn);
+      const created = await analyticsService.addChannel(cid, newChannelPlatform, newChannelIsOwn);
       setChannels((prev) => [...prev, created]);
       setNewChannelInput('');
       if (created.channel_id || created.id) {
@@ -659,10 +677,13 @@ export default function Analytics() {
       {/* ===== 채널 없을 때 안내 ===== */}
       {channels.length === 0 && (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-          <Youtube size={48} className="text-red-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">YouTube 채널을 등록해보세요</h3>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Youtube size={40} className="text-red-400" />
+            <Instagram size={40} className="text-pink-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">SNS 채널을 등록해보세요</h3>
           <p className="text-sm text-gray-500 mb-4">
-            채널을 등록하면 구독자 수, 조회수, 인게이지먼트 등을 실시간으로 분석할 수 있습니다.
+            YouTube, Instagram 채널을 등록하면 구독자 수, 조회수, 인게이지먼트 등을 실시간으로 분석할 수 있습니다.
           </p>
           <button
             onClick={() => setShowChannelModal(true)}
@@ -705,15 +726,18 @@ export default function Analytics() {
                 {/* 채널 프로필 헤더 */}
                 <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
                   <div className="flex items-center gap-4 mb-5">
-                    {ch.thumbnail ? (
-                      <img src={ch.thumbnail} alt={ch.name} className="w-16 h-16 rounded-full object-cover ring-2 ring-red-100" />
+                    {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return ch.thumbnail ? (
+                      <img src={ch.thumbnail} alt={ch.name} className={`w-16 h-16 rounded-full object-cover ring-2 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
-                        <Youtube size={28} className="text-red-500" />
+                      <div className={`w-16 h-16 rounded-full ${cfg.bgColor} flex items-center justify-center`}>
+                        <PIcon size={28} className={cfg.textColor} />
                       </div>
-                    )}
+                    ); })()}
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900">{ch.name}</h2>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-gray-900">{ch.name}</h2>
+                        {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return <PIcon size={16} className={cfg.textColor} />; })()}
+                      </div>
                       {ch.handle && <p className="text-sm text-gray-400">{ch.handle}</p>}
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium mt-1 inline-block">우리 채널</span>
                     </div>
@@ -792,7 +816,7 @@ export default function Analytics() {
                                 <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                                 <td className="px-3 py-2.5">
                                   <a
-                                    href={`https://youtube.com/watch?v=${v.video_id || v.videoId}`}
+                                    href={PLATFORM_CONFIG[v.platform || 'youtube'].getLink(v)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-2 hover:text-indigo-600 transition-colors"
@@ -888,7 +912,7 @@ export default function Analytics() {
                 {enrichedVideos.slice(0, 4).map((video, idx) => (
                   <a
                     key={video.video_id || video.videoId || idx}
-                    href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                    href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
@@ -951,8 +975,8 @@ export default function Analytics() {
                               {ch.thumbnail ? (
                                 <img src={ch.thumbnail} alt="" className="w-7 h-7 rounded-full object-cover" />
                               ) : (
-                                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-                                  <Youtube size={12} className="text-gray-400" />
+                                <div className={`w-7 h-7 rounded-full ${PLATFORM_CONFIG[ch.platform || 'youtube'].bgColor} flex items-center justify-center`}>
+                                  {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const I = cfg.icon; return <I size={12} className={cfg.textColor} />; })()}
                                 </div>
                               )}
                               <span className="font-medium text-gray-700 truncate max-w-[160px]">{ch.name}</span>
@@ -1017,9 +1041,9 @@ export default function Analytics() {
           {enrichedVideos.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center">
               <Play size={48} className="text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">영상 데이터가 없습니다</h3>
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">콘텐츠 데이터가 없습니다</h3>
               <p className="text-sm text-gray-400">
-                채널을 등록하고 새로고침 버튼을 눌러 영상 데이터를 가져오세요.
+                채널을 등록하고 새로고침 버튼을 눌러 콘텐츠 데이터를 가져오세요.
               </p>
             </div>
           ) : (
@@ -1069,7 +1093,7 @@ export default function Analytics() {
                     {topPerformers.map((video, idx) => (
                       <a
                         key={video.video_id || video.videoId || idx}
-                        href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                        href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
@@ -1206,7 +1230,7 @@ export default function Analytics() {
                   {sortedVideos.map((video, idx) => (
                     <a
                       key={video.video_id || video.videoId || idx}
-                      href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                      href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
@@ -1224,7 +1248,7 @@ export default function Analytics() {
                           </div>
                         )}
                         <div className="absolute top-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          <Youtube size={10} /> YouTube
+                          {(() => { const cfg = PLATFORM_CONFIG[video.platform || 'youtube']; const I = cfg.icon; return <><I size={10} /> {cfg.label}</>; })()}
                         </div>
                         {video.duration && (
                           <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
@@ -1395,7 +1419,7 @@ export default function Analytics() {
               <h3 className="text-xs font-semibold text-gray-500 mb-3">AI에게 전달되는 분석 데이터</h3>
               <div className="flex flex-wrap gap-3 text-xs text-gray-600">
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
-                  <Youtube size={12} className="text-red-500" />
+                  <Users size={12} className="text-red-500" />
                   우리 채널 {ownChannels.length}개
                 </span>
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
@@ -1404,7 +1428,7 @@ export default function Analytics() {
                 </span>
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
                   <Video size={12} className="text-purple-500" />
-                  최근 영상 {Math.min(enrichedVideos.length, 12)}개
+                  최근 콘텐츠 {Math.min(enrichedVideos.length, 12)}개
                 </span>
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
                   <Activity size={12} className="text-green-500" />
@@ -1435,14 +1459,35 @@ export default function Analytics() {
               </div>
 
               <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">YouTube 채널 추가</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">채널 추가</label>
+                {/* 플랫폼 선택 */}
+                <div className="flex gap-2 mb-3">
+                  {['youtube', 'instagram'].map((p) => {
+                    const cfg = PLATFORM_CONFIG[p];
+                    const Icon = cfg.icon;
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => { setNewChannelPlatform(p); setNewChannelInput(''); }}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-all ${
+                          newChannelPlatform === p
+                            ? `${cfg.bgColor} ${cfg.textColor} ${cfg.borderColor} shadow-sm`
+                            : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Icon size={16} />
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <input
                   type="text"
                   value={newChannelInput}
                   onChange={(e) => setNewChannelInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddChannel()}
-                  placeholder="채널 ID (UCxxxxxxx) 또는 @handle"
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent mb-3"
+                  placeholder={PLATFORM_CONFIG[newChannelPlatform].idPlaceholder}
+                  className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 ${PLATFORM_CONFIG[newChannelPlatform].ringColor} focus:border-transparent mb-3`}
                 />
                 <div className="flex items-center gap-4 mb-3">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1467,7 +1512,11 @@ export default function Analytics() {
                 <button
                   onClick={handleAddChannel}
                   disabled={addingChannel || !newChannelInput.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                    newChannelPlatform === 'instagram'
+                      ? 'bg-pink-500 hover:bg-pink-600'
+                      : 'bg-red-500 hover:bg-red-600'
+                  }`}
                 >
                   {addingChannel ? (
                     <>
@@ -1487,46 +1536,63 @@ export default function Analytics() {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-600 mb-3">등록된 채널 ({channels.length})</h3>
                   <div className="space-y-2">
-                    {channels.map((ch) => (
-                      <div key={ch.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
-                        {ch.thumbnail ? (
-                          <img src={ch.thumbnail} alt={ch.name} className="w-8 h-8 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-                            <Youtube size={14} className="text-red-500" />
+                    {channels.map((ch) => {
+                      const chCfg = PLATFORM_CONFIG[ch.platform || 'youtube'];
+                      const ChIcon = chCfg.icon;
+                      return (
+                        <div key={ch.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+                          {ch.thumbnail ? (
+                            <img src={ch.thumbnail} alt={ch.name} className="w-8 h-8 rounded-full object-cover" />
+                          ) : (
+                            <div className={`w-8 h-8 rounded-full ${chCfg.bgColor} flex items-center justify-center`}>
+                              <ChIcon size={14} className={chCfg.textColor} />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <ChIcon size={12} className={chCfg.textColor} />
+                              <p className="text-sm font-medium text-gray-700 truncate">{ch.name}</p>
+                            </div>
+                            <p className="text-[11px] text-gray-400">{ch.handle || ch.channel_id}</p>
                           </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">{ch.name}</p>
-                          <p className="text-[11px] text-gray-400">{ch.channel_id}</p>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              ch.is_own ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                            }`}
+                          >
+                            {ch.is_own ? '우리' : '경쟁'}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveChannel(ch.id)}
+                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
                         </div>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                            ch.is_own ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
-                          }`}
-                        >
-                          {ch.is_own ? '우리' : '경쟁'}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveChannel(ch.id)}
-                          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               <div className="mt-5 p-3 bg-amber-50 rounded-lg">
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  <strong>채널 ID 찾는 방법:</strong>
-                  <br />
-                  YouTube 채널 페이지 URL에서 <code className="bg-amber-100 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.
-                  <br />
-                  또는 <code className="bg-amber-100 px-1 rounded">@handle</code> 형식도 지원합니다.
-                </p>
+                {newChannelPlatform === 'youtube' ? (
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    <strong>YouTube 채널 ID 찾는 방법:</strong>
+                    <br />
+                    채널 페이지 URL에서 <code className="bg-amber-100 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.
+                    <br />
+                    또는 <code className="bg-amber-100 px-1 rounded">@handle</code> 형식도 지원합니다.
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    <strong>Instagram Business Account ID 찾는 방법:</strong>
+                    <br />
+                    Meta Business Suite → 설정 → 비즈니스 자산 → Instagram 계정에서 확인할 수 있습니다.
+                    <br />
+                    <span className="text-amber-600">※ Instagram Business/Creator 계정만 지원됩니다.</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>

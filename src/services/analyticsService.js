@@ -84,17 +84,31 @@ export const analyticsService = {
   },
 
   async addChannel(channelId, platform = 'youtube', isOwn = false) {
-    // 1. YouTube API로 채널 정보 조회
-    const res = await fetch(`${API_BASE}/api/sns/youtube-channel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelId }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `채널 조회 실패: ${res.status}`);
+    // 1. 플랫폼별 API로 채널 정보 조회
+    let channel;
+    if (platform === 'instagram') {
+      const res = await fetch(`${API_BASE}/api/sns/instagram-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: channelId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `인스타그램 프로필 조회 실패: ${res.status}`);
+      }
+      ({ channel } = await res.json());
+    } else {
+      const res = await fetch(`${API_BASE}/api/sns/youtube-channel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `채널 조회 실패: ${res.status}`);
+      }
+      ({ channel } = await res.json());
     }
-    const { channel } = await res.json();
 
     // 2. Supabase에 upsert
     const { data, error } = await supabase
@@ -112,14 +126,14 @@ export const analyticsService = {
     if (error) throw error;
 
     // 3. 초기 통계 스냅샷 저장
-    await this.saveChannelStats(channel);
+    await this.saveChannelStats(channel, platform);
 
-    // 4. 초기 영상 데이터 가져오기
+    // 4. 초기 콘텐츠 데이터 가져오기
     let videos = [];
     try {
-      videos = await this.fetchChannelVideos(channel.id, 12);
+      videos = await this.fetchChannelVideos(channel.id, 12, platform);
     } catch (e) {
-      console.error('초기 영상 fetch 실패:', e);
+      console.error('초기 콘텐츠 fetch 실패:', e);
     }
 
     return { ...data, ...channel, initialVideos: videos };
@@ -147,30 +161,39 @@ export const analyticsService = {
   },
 
   // ============================================
-  // YouTube 데이터 가져오기
+  // 플랫폼별 데이터 가져오기 (YouTube / Instagram)
   // ============================================
-  async fetchChannelStats(channelId) {
-    const res = await fetch(`${API_BASE}/api/sns/youtube-channel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelId }),
-    });
+  async fetchChannelStats(channelId, platform = 'youtube') {
+    let res;
+    if (platform === 'instagram') {
+      res = await fetch(`${API_BASE}/api/sns/instagram-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: channelId }),
+      });
+    } else {
+      res = await fetch(`${API_BASE}/api/sns/youtube-channel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId }),
+      });
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || '채널 통계 조회 실패');
     }
     const { channel } = await res.json();
-    await this.saveChannelStats(channel);
+    await this.saveChannelStats(channel, platform);
     return channel;
   },
 
-  async saveChannelStats(channel) {
+  async saveChannelStats(channel, platform = 'youtube') {
     const today = new Date().toISOString().split('T')[0];
     const { error } = await supabase
       .from('sns_channel_stats')
       .upsert({
         channel_id: channel.id,
-        platform: 'youtube',
+        platform,
         subscribers: channel.subscribers,
         total_views: channel.totalViews,
         video_count: channel.videoCount,
@@ -216,15 +239,24 @@ export const analyticsService = {
     return data;
   },
 
-  async fetchChannelVideos(channelId, maxResults = 12) {
-    const res = await fetch(`${API_BASE}/api/sns/youtube-videos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channelId, maxResults }),
-    });
+  async fetchChannelVideos(channelId, maxResults = 12, platform = 'youtube') {
+    let res;
+    if (platform === 'instagram') {
+      res = await fetch(`${API_BASE}/api/sns/instagram-media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: channelId, maxResults }),
+      });
+    } else {
+      res = await fetch(`${API_BASE}/api/sns/youtube-videos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, maxResults }),
+      });
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || '영상 조회 실패');
+      throw new Error(err.error || '콘텐츠 조회 실패');
     }
     const { videos } = await res.json();
 
@@ -232,7 +264,7 @@ export const analyticsService = {
     if (videos.length > 0) {
       const rows = videos.map((v) => ({
         channel_id: channelId,
-        platform: 'youtube',
+        platform,
         video_id: v.videoId,
         title: v.title,
         thumbnail: v.thumbnail,
@@ -245,7 +277,7 @@ export const analyticsService = {
       const { error } = await supabase
         .from('sns_videos')
         .upsert(rows, { onConflict: 'platform,video_id' });
-      if (error) console.error('영상 캐시 저장 실패:', error);
+      if (error) console.error('콘텐츠 캐시 저장 실패:', error);
     }
 
     return videos;
@@ -348,10 +380,11 @@ export const analyticsService = {
   async refreshAllChannelData(channels) {
     const results = await Promise.allSettled(
       channels.map(async (ch) => {
+        const platform = ch.platform || 'youtube';
         // stats와 videos를 독립적으로 fetch → 하나 실패해도 다른 것은 살림
         const [statsResult, videosResult] = await Promise.allSettled([
-          this.fetchChannelStats(ch.channel_id),
-          this.fetchChannelVideos(ch.channel_id, 12),
+          this.fetchChannelStats(ch.channel_id, platform),
+          this.fetchChannelVideos(ch.channel_id, 12, platform),
         ]);
         return {
           channelId: ch.channel_id,
