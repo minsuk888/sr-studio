@@ -69,6 +69,11 @@ export function AppProvider({ children }) {
     setCalendarEvents((prev) => [...prev, created]);
   }, []);
 
+  const updateCalendarEvent = useCallback(async (id, updates) => {
+    const updated = await calendarService.update(id, updates);
+    setCalendarEvents((prev) => prev.map((e) => (e.id === id ? updated : e)));
+  }, []);
+
   const deleteCalendarEvent = useCallback(async (id) => {
     await calendarService.delete(id);
     setCalendarEvents((prev) => prev.filter((e) => e.id !== id));
@@ -89,6 +94,7 @@ export function AppProvider({ children }) {
         updateMember,
         deleteMember,
         addCalendarEvent,
+        updateCalendarEvent,
         deleteCalendarEvent,
       }}
     >

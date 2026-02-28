@@ -20,6 +20,17 @@ export const calendarService = {
     return data;
   },
 
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   async delete(id) {
     const { error } = await supabase
       .from('calendar_events')
