@@ -351,6 +351,14 @@ export default function Analytics() {
             videoCount: created.videoCount,
           },
         }));
+        // 초기 영상 데이터 반영
+        if (created.initialVideos && created.initialVideos.length > 0) {
+          setRecentVideos((prev) => {
+            const merged = [...prev, ...created.initialVideos];
+            merged.sort((a, b) => new Date(b.publishedAt || b.published_at) - new Date(a.publishedAt || a.published_at));
+            return merged;
+          });
+        }
       }
     } catch (err) {
       alert(`채널 추가 실패: ${err.message}`);
@@ -363,8 +371,18 @@ export default function Analytics() {
   const handleRemoveChannel = async (id) => {
     if (!confirm('이 채널을 삭제하시겠습니까?')) return;
     try {
+      const ch = channels.find((c) => c.id === id);
       await analyticsService.removeChannel(id);
       setChannels((prev) => prev.filter((c) => c.id !== id));
+      // 관련 영상/통계 state도 정리
+      if (ch) {
+        setRecentVideos((prev) => prev.filter((v) => (v.channel_id || v.channelId) !== ch.channel_id));
+        setChannelStats((prev) => {
+          const next = { ...prev };
+          delete next[ch.channel_id];
+          return next;
+        });
+      }
     } catch (err) {
       alert(`채널 삭제 실패: ${err.message}`);
     }
@@ -580,81 +598,146 @@ export default function Analytics() {
       {/* ================================================================ */}
       {activeTab === 'overview' && channels.length > 0 && (
         <div className="space-y-6">
-          {/* KPI 요약 바 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: '총 구독자', value: formatNumber(kpiData.totalSubs), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
-              { label: '총 조회수', value: formatNumber(kpiData.totalViews), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
-              { label: '총 영상 수', value: formatNumber(kpiData.totalVideos), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
-              { label: '평균 인게이지먼트', value: `${kpiData.avgEngagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
-            ].map((kpi) => (
-              <div key={kpi.label} className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
-                    <kpi.icon size={16} className={kpi.color} />
-                  </div>
-                  <span className="text-xs text-gray-500">{kpi.label}</span>
-                </div>
-                <p className="text-xl font-bold text-gray-900">{kpi.value}</p>
-              </div>
-            ))}
-          </div>
+          {/* 채널 프로필 + KPI */}
+          {ownChannels.map((ch, idx) => {
+            const stats = channelStats[ch.channel_id] || {};
+            const engagement = channelEngagementMap[ch.channel_id] || 0;
+            const chVideos = enrichedVideos.filter(
+              (v) => (v.channel_id || v.channelId) === ch.channel_id,
+            );
+            const avgViews = chVideos.length > 0
+              ? Math.round(chVideos.reduce((s, v) => s + (v.views || 0), 0) / chVideos.length) : 0;
+            const avgLikes = chVideos.length > 0
+              ? Math.round(chVideos.reduce((s, v) => s + (v.likes || 0), 0) / chVideos.length) : 0;
+            const avgComments = chVideos.length > 0
+              ? Math.round(chVideos.reduce((s, v) => s + (v.comments || 0), 0) / chVideos.length) : 0;
+            const avgLikeRatio = chVideos.length > 0
+              ? chVideos.reduce((s, v) => s + v.likeRatio, 0) / chVideos.length : 0;
+            const avgCommentRatio = chVideos.length > 0
+              ? chVideos.reduce((s, v) => s + v.commentRatio, 0) / chVideos.length : 0;
+            const totalVideoViews = chVideos.reduce((s, v) => s + (v.views || 0), 0);
+            const viewsPerSub = (stats.subscribers || 0) > 0
+              ? (avgViews / stats.subscribers * 100).toFixed(1) : '0';
 
-          {/* 우리 채널 카드 */}
-          {ownChannels.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
-                <Youtube size={15} className="text-red-500" />
-                우리 채널
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {ownChannels.map((ch, idx) => {
-                  const stats = channelStats[ch.channel_id] || {};
-                  const engagement = channelEngagementMap[ch.channel_id] || 0;
-                  const color = CHANNEL_COLORS[idx % CHANNEL_COLORS.length];
-                  return (
-                    <div
-                      key={ch.id}
-                      className="bg-white rounded-xl shadow-sm p-5 border-l-4 relative overflow-hidden hover:shadow-md transition-shadow"
-                      style={{ borderLeftColor: color }}
-                    >
-                      <div className="flex items-center gap-3 mb-4">
-                        {ch.thumbnail ? (
-                          <img src={ch.thumbnail} alt={ch.name} className="w-10 h-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                            <Youtube size={18} className="text-red-500" />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-gray-800 text-sm truncate">{ch.name}</h3>
-                          {ch.handle && <p className="text-xs text-gray-400">{ch.handle}</p>}
-                        </div>
+            return (
+              <div key={ch.id} className="space-y-4">
+                {/* 채널 프로필 헤더 */}
+                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                  <div className="flex items-center gap-4 mb-5">
+                    {ch.thumbnail ? (
+                      <img src={ch.thumbnail} alt={ch.name} className="w-16 h-16 rounded-full object-cover ring-2 ring-red-100" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                        <Youtube size={28} className="text-red-500" />
                       </div>
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Users size={13} /> 구독자</span>
-                          <span className="text-lg font-bold text-gray-900">{formatNumber(stats.subscribers || 0)}</span>
+                    )}
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900">{ch.name}</h2>
+                      {ch.handle && <p className="text-sm text-gray-400">{ch.handle}</p>}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium mt-1 inline-block">우리 채널</span>
+                    </div>
+                  </div>
+                  {/* 핵심 KPI 6칸 */}
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                    {[
+                      { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
+                      { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
+                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
+                      { label: '인게이지먼트', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
+                      { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
+                      { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
+                    ].map((kpi) => (
+                      <div key={kpi.label} className="text-center p-3 rounded-lg border border-gray-50">
+                        <div className={`inline-flex p-1.5 rounded-lg ${kpi.bg} mb-1.5`}>
+                          <kpi.icon size={14} className={kpi.color} />
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Eye size={13} /> 총 조회수</span>
-                          <span className="text-sm font-semibold text-gray-700">{formatNumber(stats.totalViews || 0)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Video size={13} /> 영상 수</span>
-                          <span className="text-sm font-semibold text-gray-700">{formatNumber(stats.videoCount || 0)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500 flex items-center gap-1"><Activity size={13} /> 인게이지먼트</span>
-                          <EngagementBadge rate={engagement} />
-                        </div>
+                        <p className="text-lg font-bold text-gray-900">{kpi.value}</p>
+                        <p className="text-[10px] text-gray-400">{kpi.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 영상 성과 상세 분석 */}
+                {chVideos.length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                      <Activity size={15} className="text-green-500" />
+                      최근 영상 성과 분석 ({chVideos.length}개)
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                        <p className="text-[10px] text-blue-500 mb-1">평균 조회수</p>
+                        <p className="text-base font-bold text-blue-700">{formatNumber(avgViews)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-pink-50 rounded-lg">
+                        <p className="text-[10px] text-pink-500 mb-1">평균 좋아요</p>
+                        <p className="text-base font-bold text-pink-700">{formatNumber(avgLikes)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                        <p className="text-[10px] text-indigo-500 mb-1">평균 댓글</p>
+                        <p className="text-base font-bold text-indigo-700">{formatNumber(avgComments)}</p>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                        <p className="text-[10px] text-green-500 mb-1">평균 좋아요율</p>
+                        <p className="text-base font-bold text-green-700">{avgLikeRatio.toFixed(2)}%</p>
+                      </div>
+                      <div className="text-center p-3 bg-amber-50 rounded-lg">
+                        <p className="text-[10px] text-amber-500 mb-1">평균 댓글율</p>
+                        <p className="text-base font-bold text-amber-700">{avgCommentRatio.toFixed(3)}%</p>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* 영상별 상세 테이블 */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-500 text-[11px]">
+                            <th className="text-left px-3 py-2.5 font-medium w-8">#</th>
+                            <th className="text-left px-3 py-2.5 font-medium">영상</th>
+                            <th className="text-right px-3 py-2.5 font-medium">조회수</th>
+                            <th className="text-right px-3 py-2.5 font-medium">좋아요</th>
+                            <th className="text-right px-3 py-2.5 font-medium">댓글</th>
+                            <th className="text-right px-3 py-2.5 font-medium">좋아요율</th>
+                            <th className="text-right px-3 py-2.5 font-medium">인게이지먼트</th>
+                            <th className="text-right px-3 py-2.5 font-medium">게시일</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...chVideos]
+                            .sort((a, b) => b.engagementRate - a.engagementRate)
+                            .map((v, i) => (
+                              <tr key={v.video_id || v.videoId || i} className="border-t border-gray-50 hover:bg-gray-50/50">
+                                <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
+                                <td className="px-3 py-2.5">
+                                  <a
+                                    href={`https://youtube.com/watch?v=${v.video_id || v.videoId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                                  >
+                                    {v.thumbnail && (
+                                      <img src={v.thumbnail} alt="" className="w-14 h-8 rounded object-cover flex-shrink-0" />
+                                    )}
+                                    <span className="text-xs font-medium text-gray-700 line-clamp-2 hover:text-indigo-600">{v.title}</span>
+                                  </a>
+                                </td>
+                                <td className="text-right px-3 py-2.5 text-xs font-semibold text-gray-700">{formatNumber(v.views)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-pink-600">{formatNumber(v.likes)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-indigo-600">{formatNumber(v.comments)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-gray-600">{v.likeRatio.toFixed(2)}%</td>
+                                <td className="text-right px-3 py-2.5"><EngagementBadge rate={v.engagementRate} /></td>
+                                <td className="text-right px-3 py-2.5 text-[11px] text-gray-400">{formatFullDate(v.published_at || v.publishedAt)}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })}
 
           {/* 구독자 성장 추이 차트 */}
           {growthData.length > 1 && growthChannelNames.length > 0 && (
@@ -702,74 +785,6 @@ export default function Analytics() {
                 <br />
                 매일 새로고침하여 데이터를 수집해주세요.
               </p>
-            </div>
-          )}
-
-          {/* 인게이지먼트 현황 */}
-          {enrichedVideos.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
-                <Activity size={15} className="text-green-500" />
-                인게이지먼트 현황
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-600 mb-1">평균 조회수</p>
-                  <p className="text-lg font-bold text-blue-700">
-                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.views || 0), 0) / enrichedVideos.length))}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-pink-50 rounded-lg">
-                  <p className="text-xs text-pink-600 mb-1">평균 좋아요</p>
-                  <p className="text-lg font-bold text-pink-700">
-                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.likes || 0), 0) / enrichedVideos.length))}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                  <p className="text-xs text-indigo-600 mb-1">평균 댓글</p>
-                  <p className="text-lg font-bold text-indigo-700">
-                    {formatNumber(Math.round(enrichedVideos.reduce((s, v) => s + (v.comments || 0), 0) / enrichedVideos.length))}
-                  </p>
-                </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-xs text-green-600 mb-1">평균 좋아요율</p>
-                  <p className="text-lg font-bold text-green-700">
-                    {(enrichedVideos.reduce((s, v) => s + v.likeRatio, 0) / enrichedVideos.length).toFixed(2)}%
-                  </p>
-                </div>
-              </div>
-              {/* 인게이지먼트 Top 5 리스트 */}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-gray-500 mb-2">인게이지먼트 Top 5</p>
-                {[...enrichedVideos]
-                  .sort((a, b) => b.engagementRate - a.engagementRate)
-                  .slice(0, 5)
-                  .map((v, idx) => (
-                    <a
-                      key={v.video_id || v.videoId || idx}
-                      href={`https://youtube.com/watch?v=${v.video_id || v.videoId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-yellow-100 text-yellow-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                        {idx + 1}
-                      </span>
-                      {v.thumbnail && (
-                        <img src={v.thumbnail} alt="" className="w-16 h-10 rounded object-cover flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700 font-medium truncate group-hover:text-indigo-600 transition-colors">{v.title}</p>
-                        <div className="flex items-center gap-3 text-[11px] text-gray-400 mt-0.5">
-                          <span><Eye size={10} className="inline mr-0.5" />{formatNumber(v.views)}</span>
-                          <span><ThumbsUp size={10} className="inline mr-0.5" />{formatNumber(v.likes)}</span>
-                          <span><MessageCircle size={10} className="inline mr-0.5" />{formatNumber(v.comments)}</span>
-                        </div>
-                      </div>
-                      <EngagementBadge rate={v.engagementRate} />
-                    </a>
-                  ))}
-              </div>
             </div>
           )}
 

@@ -114,10 +114,34 @@ export const analyticsService = {
     // 3. 초기 통계 스냅샷 저장
     await this.saveChannelStats(channel);
 
-    return { ...data, ...channel };
+    // 4. 초기 영상 데이터 가져오기
+    let videos = [];
+    try {
+      videos = await this.fetchChannelVideos(channel.id, 12);
+    } catch (e) {
+      console.error('초기 영상 fetch 실패:', e);
+    }
+
+    return { ...data, ...channel, initialVideos: videos };
   },
 
   async removeChannel(id) {
+    // 먼저 channel_id 조회
+    const { data: ch } = await supabase
+      .from('sns_channels')
+      .select('channel_id, platform')
+      .eq('id', id)
+      .single();
+
+    // 관련 데이터 정리
+    if (ch) {
+      await supabase.from('sns_videos').delete()
+        .eq('channel_id', ch.channel_id).eq('platform', ch.platform);
+      await supabase.from('sns_channel_stats').delete()
+        .eq('channel_id', ch.channel_id).eq('platform', ch.platform);
+    }
+
+    // 채널 삭제
     const { error } = await supabase.from('sns_channels').delete().eq('id', id);
     if (error) throw error;
   },
@@ -300,9 +324,16 @@ export const analyticsService = {
   async refreshAllChannelData(channels) {
     const results = await Promise.allSettled(
       channels.map(async (ch) => {
-        const stats = await this.fetchChannelStats(ch.channel_id);
-        const videos = await this.fetchChannelVideos(ch.channel_id, 12);
-        return { channelId: ch.channel_id, stats, videos };
+        // stats와 videos를 독립적으로 fetch → 하나 실패해도 다른 것은 살림
+        const [statsResult, videosResult] = await Promise.allSettled([
+          this.fetchChannelStats(ch.channel_id),
+          this.fetchChannelVideos(ch.channel_id, 12),
+        ]);
+        return {
+          channelId: ch.channel_id,
+          stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
+          videos: videosResult.status === 'fulfilled' ? videosResult.value : [],
+        };
       })
     );
     return results;
