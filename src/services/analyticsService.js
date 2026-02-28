@@ -3,6 +3,43 @@ import { supabase } from '../lib/supabase';
 // API base — 개발: Vite proxy, 프로덕션: Vercel serverless
 const API_BASE = import.meta.env.DEV ? '' : '';
 
+// ============================================
+// 인게이지먼트 계산 헬퍼 (export)
+// ============================================
+export function calcEngagementRate(video) {
+  const views = Number(video.views) || 0;
+  if (views === 0) return 0;
+  return (((Number(video.likes) || 0) + (Number(video.comments) || 0)) / views) * 100;
+}
+
+export function calcLikeRatio(video) {
+  const views = Number(video.views) || 0;
+  if (views === 0) return 0;
+  return ((Number(video.likes) || 0) / views) * 100;
+}
+
+export function calcCommentRatio(video) {
+  const views = Number(video.views) || 0;
+  if (views === 0) return 0;
+  return ((Number(video.comments) || 0) / views) * 100;
+}
+
+export function calcChannelEngagement(videos) {
+  if (!videos || videos.length === 0) return 0;
+  const rates = videos.map(calcEngagementRate);
+  return rates.reduce((a, b) => a + b, 0) / rates.length;
+}
+
+export function formatDuration(iso) {
+  if (!iso) return '';
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return iso;
+  const h = m[1] ? `${m[1]}:` : '';
+  const min = (m[2] || '0').padStart(h ? 2 : 1, '0');
+  const sec = (m[3] || '0').padStart(2, '0');
+  return `${h}${min}:${sec}`;
+}
+
 export const analyticsService = {
   // ============================================
   // 기존 메서드 (하위 호환 유지)
@@ -131,7 +168,7 @@ export const analyticsService = {
     return data;
   },
 
-  async fetchChannelVideos(channelId, maxResults = 6) {
+  async fetchChannelVideos(channelId, maxResults = 12) {
     const res = await fetch(`${API_BASE}/api/sns/youtube-videos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

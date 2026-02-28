@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -29,8 +29,19 @@ import {
   ThumbsUp,
   BarChart3,
   Video,
+  Trophy,
+  ArrowUpDown,
+  Activity,
+  Clock,
 } from 'lucide-react';
 import { analyticsService } from '../services/analyticsService';
+import {
+  calcEngagementRate,
+  calcLikeRatio,
+  calcCommentRatio,
+  calcChannelEngagement,
+  formatDuration,
+} from '../services/analyticsService';
 
 // ---------- helpers ----------
 
@@ -48,7 +59,7 @@ function formatFullDate(dateStr) {
   return dateStr.split('T')[0];
 }
 
-// 마크다운 → HTML (News.jsx와 동일 패턴)
+// 마크다운 → HTML
 function renderInsightText(text) {
   return text
     .split('\n')
@@ -70,14 +81,49 @@ function renderInsightText(text) {
 // 색상 팔레트
 const CHANNEL_COLORS = ['#FF0000', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
+// 탭 정의
+const TABS = [
+  { key: 'overview', label: '채널 개요', icon: BarChart3 },
+  { key: 'content', label: '콘텐츠 분석', icon: Play },
+  { key: 'monitoring', label: '업계 모니터링', icon: Search },
+  { key: 'insights', label: 'AI 인사이트', icon: Sparkles },
+];
+
+// 정렬 옵션
+const SORT_OPTIONS = [
+  { key: 'date', label: '최신순' },
+  { key: 'views', label: '조회수순' },
+  { key: 'engagement', label: '인게이지먼트순' },
+  { key: 'likes', label: '좋아요순' },
+];
+
+// 인게이지먼트 배지
+function EngagementBadge({ rate }) {
+  const color =
+    rate >= 5
+      ? 'bg-green-100 text-green-700'
+      : rate >= 2
+        ? 'bg-yellow-100 text-yellow-700'
+        : 'bg-gray-100 text-gray-500';
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color}`}>
+      {rate.toFixed(1)}%
+    </span>
+  );
+}
+
 // ============================================================
 // Main Component
 // ============================================================
 export default function Analytics() {
+  // ---- 탭 ----
+  const [activeTab, setActiveTab] = useState('overview');
+
   // ---- 채널 데이터 ----
   const [channels, setChannels] = useState([]);
   const [channelStats, setChannelStats] = useState({});
   const [recentVideos, setRecentVideos] = useState([]);
+  const [growthData, setGrowthData] = useState([]);
 
   // ---- 모니터링 ----
   const [monitoringKeywords, setMonitoringKeywords] = useState([]);
@@ -88,7 +134,6 @@ export default function Analytics() {
   // ---- AI 인사이트 ----
   const [aiInsight, setAiInsight] = useState('');
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
-  const [showInsight, setShowInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
 
   // ---- 채널 관리 모달 ----
@@ -97,9 +142,71 @@ export default function Analytics() {
   const [newChannelIsOwn, setNewChannelIsOwn] = useState(true);
   const [addingChannel, setAddingChannel] = useState(false);
 
+  // ---- 콘텐츠 분석 정렬 ----
+  const [videoSortBy, setVideoSortBy] = useState('date');
+
   // ---- UI ----
   const [loaded, setLoaded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // ---- 파생 데이터 ----
+  const ownChannels = useMemo(() => channels.filter((c) => c.is_own), [channels]);
+  const competitorChannels = useMemo(() => channels.filter((c) => !c.is_own), [channels]);
+
+  // 영상 + 인게이지먼트율
+  const enrichedVideos = useMemo(
+    () =>
+      recentVideos.map((v) => ({
+        ...v,
+        engagementRate: calcEngagementRate(v),
+        likeRatio: calcLikeRatio(v),
+        commentRatio: calcCommentRatio(v),
+      })),
+    [recentVideos],
+  );
+
+  // 정렬된 영상
+  const sortedVideos = useMemo(() => {
+    const sorted = [...enrichedVideos];
+    switch (videoSortBy) {
+      case 'views':
+        sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+        break;
+      case 'engagement':
+        sorted.sort((a, b) => b.engagementRate - a.engagementRate);
+        break;
+      case 'likes':
+        sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+        break;
+      default:
+        sorted.sort(
+          (a, b) =>
+            new Date(b.published_at || b.publishedAt) - new Date(a.published_at || a.publishedAt),
+        );
+    }
+    return sorted;
+  }, [enrichedVideos, videoSortBy]);
+
+  // Top 3 퍼포머
+  const topPerformers = useMemo(
+    () => [...enrichedVideos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 3),
+    [enrichedVideos],
+  );
+
+  // KPI 집계
+  const kpiData = useMemo(() => {
+    const ownStats = ownChannels.map((ch) => channelStats[ch.channel_id] || {});
+    const ownVideoIds = new Set(ownChannels.map((ch) => ch.channel_id));
+    const ownVideos = enrichedVideos.filter(
+      (v) => ownVideoIds.has(v.channel_id) || ownVideoIds.has(v.channelId),
+    );
+    return {
+      totalSubs: ownStats.reduce((s, st) => s + (st.subscribers || 0), 0),
+      totalViews: ownStats.reduce((s, st) => s + (st.totalViews || 0), 0),
+      totalVideos: ownStats.reduce((s, st) => s + (st.videoCount || 0), 0),
+      avgEngagement: calcChannelEngagement(ownVideos),
+    };
+  }, [ownChannels, channelStats, enrichedVideos]);
 
   // ---- 초기 데이터 로드 ----
   useEffect(() => {
@@ -116,7 +223,10 @@ export default function Analytics() {
         if (cachedInsight) {
           setAiInsight(cachedInsight.insight_text);
           setInsightGeneratedAt(
-            new Date(cachedInsight.generated_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            new Date(cachedInsight.generated_at).toLocaleTimeString('ko-KR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
           );
         }
 
@@ -125,6 +235,35 @@ export default function Analytics() {
         if (ownIds.length > 0) {
           const videos = await analyticsService.getCachedVideos(ownIds);
           setRecentVideos(videos || []);
+
+          // 성장 차트 데이터 로드
+          try {
+            const histories = await Promise.all(
+              ownIds.map((id) => analyticsService.getChannelStatsHistory(id, 30)),
+            );
+            const dateMap = {};
+            const channelNames = {};
+            (channelsData || []).forEach((ch) => {
+              if (ch.is_own) channelNames[ch.channel_id] = ch.name;
+            });
+
+            histories.forEach((history, idx) => {
+              const chId = ownIds[idx];
+              const chName = channelNames[chId] || chId;
+              (history || []).forEach((row) => {
+                const date = row.fetched_date;
+                if (!dateMap[date]) dateMap[date] = { date };
+                dateMap[date][chName] = row.subscribers || 0;
+              });
+            });
+
+            const chartData = Object.values(dateMap).sort(
+              (a, b) => new Date(a.date) - new Date(b.date),
+            );
+            setGrowthData(chartData);
+          } catch (e) {
+            console.error('성장 데이터 로드 실패:', e);
+          }
         }
       } catch (err) {
         console.error('초기 로드 실패:', err);
@@ -158,6 +297,31 @@ export default function Analytics() {
       // 채널 목록 새로고침
       const freshChannels = await analyticsService.getChannels();
       setChannels(freshChannels || []);
+
+      // 성장 차트 갱신
+      const ownIds = (freshChannels || []).filter((c) => c.is_own).map((c) => c.channel_id);
+      if (ownIds.length > 0) {
+        const channelNames = {};
+        (freshChannels || []).forEach((ch) => {
+          if (ch.is_own) channelNames[ch.channel_id] = ch.name;
+        });
+        const histories = await Promise.all(
+          ownIds.map((id) => analyticsService.getChannelStatsHistory(id, 30)),
+        );
+        const dateMap = {};
+        histories.forEach((history, idx) => {
+          const chId = ownIds[idx];
+          const chName = channelNames[chId] || chId;
+          (history || []).forEach((row) => {
+            const date = row.fetched_date;
+            if (!dateMap[date]) dateMap[date] = { date };
+            dateMap[date][chName] = row.subscribers || 0;
+          });
+        });
+        setGrowthData(
+          Object.values(dateMap).sort((a, b) => new Date(a.date) - new Date(b.date)),
+        );
+      }
     } catch (err) {
       console.error('데이터 새로고침 실패:', err);
       alert('데이터 새로고침에 실패했습니다.');
@@ -205,16 +369,16 @@ export default function Analytics() {
 
   // ---- AI 인사이트 생성 ----
   const handleGenerateInsight = async () => {
-    const ownChannels = channels.filter((c) => c.is_own);
-    if (ownChannels.length === 0 && recentVideos.length === 0) {
+    const ownCh = channels.filter((c) => c.is_own);
+    if (ownCh.length === 0 && recentVideos.length === 0) {
       alert('분석할 데이터가 없습니다. 먼저 채널을 등록하고 데이터를 새로고침해주세요.');
       return;
     }
     setIsGeneratingInsight(true);
-    setShowInsight(true);
     setAiInsight('');
+    setActiveTab('insights');
     try {
-      const channelData = ownChannels.map((ch) => ({
+      const channelData = ownCh.map((ch) => ({
         platform: ch.platform,
         name: ch.name,
         subscribers: channelStats[ch.channel_id]?.subscribers || 0,
@@ -228,16 +392,21 @@ export default function Analytics() {
           subscribers: channelStats[ch.channel_id]?.subscribers || 0,
           totalViews: channelStats[ch.channel_id]?.totalViews || 0,
         }));
-      const videoData = recentVideos.slice(0, 12).map((v) => ({
+      // 인게이지먼트 데이터 포함
+      const videoData = enrichedVideos.slice(0, 12).map((v) => ({
         title: v.title,
         views: v.views,
         likes: v.likes,
         comments: v.comments,
+        engagementRate: v.engagementRate?.toFixed(2),
+        likeRatio: v.likeRatio?.toFixed(2),
         publishedAt: v.publishedAt || v.published_at,
       }));
       const data = await analyticsService.generateSnsInsights(channelData, videoData, competitorData);
       setAiInsight(data.insight || '인사이트를 생성하지 못했습니다.');
-      setInsightGeneratedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
+      setInsightGeneratedAt(
+        new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+      );
       await analyticsService.saveAiInsight(data.insight, data.analyzedCount);
     } catch (err) {
       setAiInsight('AI 인사이트 생성에 실패했습니다. API 키를 확인해주세요.\n\n오류: ' + err.message);
@@ -281,7 +450,7 @@ export default function Analytics() {
     setIsSearching(true);
     try {
       const searches = monitoringKeywords.map((kw) =>
-        analyticsService.searchYouTube(kw.keyword, 5)
+        analyticsService.searchYouTube(kw.keyword, 5),
       );
       const results = await Promise.all(searches);
       const allResults = results.flatMap((r) => r.results || []);
@@ -301,9 +470,24 @@ export default function Analytics() {
     }
   };
 
-  // ---- 파생 데이터 ----
-  const ownChannels = channels.filter((c) => c.is_own);
-  const competitorChannels = channels.filter((c) => !c.is_own);
+  // ---- 채널별 인게이지먼트 계산 ----
+  const channelEngagementMap = useMemo(() => {
+    const map = {};
+    channels.forEach((ch) => {
+      const chVideos = enrichedVideos.filter(
+        (v) => (v.channel_id || v.channelId) === ch.channel_id,
+      );
+      map[ch.channel_id] = calcChannelEngagement(chVideos);
+    });
+    return map;
+  }, [channels, enrichedVideos]);
+
+  // 성장 차트 채널 이름 목록
+  const growthChannelNames = useMemo(() => {
+    if (growthData.length === 0) return [];
+    const first = growthData[0];
+    return Object.keys(first).filter((k) => k !== 'date');
+  }, [growthData]);
 
   // ---- 로딩 ----
   if (!loaded) {
@@ -323,19 +507,11 @@ export default function Analytics() {
           <h1 className="text-2xl font-bold text-gray-900">SNS 분석 대시보드</h1>
           <p className="text-sm text-gray-500 mt-1">
             {channels.length > 0
-              ? `YouTube 채널 ${channels.length}개 등록됨`
+              ? `YouTube 채널 ${channels.length}개 등록됨 (우리 ${ownChannels.length} / 경쟁 ${competitorChannels.length})`
               : 'YouTube 채널을 등록하면 실시간 분석이 시작됩니다'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={handleGenerateInsight}
-            disabled={isGeneratingInsight}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-sm"
-          >
-            <Sparkles size={15} className={isGeneratingInsight ? 'animate-spin' : ''} />
-            AI 인사이트
-          </button>
           <button
             onClick={() => setShowChannelModal(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
@@ -354,35 +530,29 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* ===== AI 인사이트 패널 ===== */}
-      {showInsight && (
-        <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100 p-5 relative">
-          <button
-            onClick={() => setShowInsight(false)}
-            className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-200/50 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={16} />
-          </button>
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles size={18} className="text-purple-500" />
-            <h2 className="text-base font-semibold text-gray-800">AI SNS 인사이트</h2>
-            {insightGeneratedAt && (
-              <span className="text-xs text-gray-400 ml-auto mr-6">생성: {insightGeneratedAt}</span>
-            )}
-          </div>
-          {isGeneratingInsight ? (
-            <div className="flex items-center gap-2 py-8 justify-center text-sm text-indigo-600">
-              <Loader className="w-5 h-5 animate-spin" />
-              Claude AI가 채널 데이터와 영상 성과를 분석하고 있습니다...
-            </div>
-          ) : aiInsight ? (
-            <div
-              className="prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
-            />
-          ) : null}
-        </div>
-      )}
+      {/* ===== 탭 네비게이션 ===== */}
+      <div className="flex items-center gap-1 border-b border-slate-200">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`relative px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+                activeTab === tab.key ? 'text-red-500' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <Icon size={15} />
+                {tab.label}
+              </span>
+              {activeTab === tab.key && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500 rounded-full" />
+              )}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ===== 채널 없을 때 안내 ===== */}
       {channels.length === 0 && (
@@ -390,7 +560,7 @@ export default function Analytics() {
           <Youtube size={48} className="text-red-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-700 mb-2">YouTube 채널을 등록해보세요</h3>
           <p className="text-sm text-gray-500 mb-4">
-            채널을 등록하면 구독자 수, 조회수, 최근 영상 성과를 실시간으로 분석할 수 있습니다.
+            채널을 등록하면 구독자 수, 조회수, 인게이지먼트 등을 실시간으로 분석할 수 있습니다.
           </p>
           <button
             onClick={() => setShowChannelModal(true)}
@@ -402,9 +572,32 @@ export default function Analytics() {
         </div>
       )}
 
-      {/* ===== 채널 KPI 카드 ===== */}
-      {channels.length > 0 && (
-        <>
+      {/* ================================================================ */}
+      {/* TAB 1: 채널 개요 */}
+      {/* ================================================================ */}
+      {activeTab === 'overview' && channels.length > 0 && (
+        <div className="space-y-6">
+          {/* KPI 요약 바 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: '총 구독자', value: formatNumber(kpiData.totalSubs), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
+              { label: '총 조회수', value: formatNumber(kpiData.totalViews), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
+              { label: '총 영상 수', value: formatNumber(kpiData.totalVideos), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
+              { label: '평균 인게이지먼트', value: `${kpiData.avgEngagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
+            ].map((kpi) => (
+              <div key={kpi.label} className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
+                    <kpi.icon size={16} className={kpi.color} />
+                  </div>
+                  <span className="text-xs text-gray-500">{kpi.label}</span>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{kpi.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* 우리 채널 카드 */}
           {ownChannels.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
@@ -414,6 +607,7 @@ export default function Analytics() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {ownChannels.map((ch, idx) => {
                   const stats = channelStats[ch.channel_id] || {};
+                  const engagement = channelEngagementMap[ch.channel_id] || 0;
                   const color = CHANNEL_COLORS[idx % CHANNEL_COLORS.length];
                   return (
                     <div
@@ -447,6 +641,10 @@ export default function Analytics() {
                           <span className="text-xs text-gray-500 flex items-center gap-1"><Video size={13} /> 영상 수</span>
                           <span className="text-sm font-semibold text-gray-700">{formatNumber(stats.videoCount || 0)}</span>
                         </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500 flex items-center gap-1"><Activity size={13} /> 인게이지먼트</span>
+                          <EngagementBadge rate={engagement} />
+                        </div>
                       </div>
                     </div>
                   );
@@ -455,183 +653,454 @@ export default function Analytics() {
             </div>
           )}
 
-          {competitorChannels.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-1.5">
-                <BarChart3 size={15} className="text-blue-500" />
-                경쟁/관련 채널
+          {/* 구독자 성장 추이 차트 */}
+          {growthData.length > 1 && growthChannelNames.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                <TrendingUp size={15} className="text-indigo-500" />
+                구독자 성장 추이 (최근 30일)
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {competitorChannels.map((ch) => {
-                  const stats = channelStats[ch.channel_id] || {};
-                  return (
-                    <div key={ch.id} className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-3 mb-3">
-                        {ch.thumbnail ? (
-                          <img src={ch.thumbnail} alt={ch.name} className="w-9 h-9 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                            <Youtube size={16} className="text-gray-400" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-gray-700 text-sm truncate">{ch.name}</h3>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">경쟁</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span><Users size={12} className="inline mr-1" />{formatNumber(stats.subscribers || 0)}</span>
-                        <span><Eye size={12} className="inline mr-1" />{formatNumber(stats.totalViews || 0)}</span>
-                        <span><Video size={12} className="inline mr-1" />{stats.videoCount || 0}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={growthData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tickFormatter={(d) => d.slice(5)}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={formatNumber} />
+                  <Tooltip
+                    contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                    formatter={(value) => [formatNumber(value), '구독자']}
+                    labelFormatter={(l) => `날짜: ${l}`}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  {growthChannelNames.map((name, idx) => (
+                    <Area
+                      key={name}
+                      type="monotone"
+                      dataKey={name}
+                      stroke={CHANNEL_COLORS[idx % CHANNEL_COLORS.length]}
+                      fill={CHANNEL_COLORS[idx % CHANNEL_COLORS.length]}
+                      fillOpacity={0.15}
+                      strokeWidth={2}
+                    />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {growthData.length <= 1 && ownChannels.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-center">
+              <TrendingUp size={32} className="text-gray-300 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">
+                성장 추이 차트는 2일 이상 데이터가 쌓이면 표시됩니다.
+                <br />
+                매일 새로고침하여 데이터를 수집해주세요.
+              </p>
+            </div>
+          )}
+
+          {/* 경쟁 채널 비교 테이블 */}
+          {competitorChannels.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <BarChart3 size={15} className="text-blue-500" />
+                  경쟁/관련 채널 비교
+                </h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-xs">
+                      <th className="text-left px-4 py-3 font-medium">채널</th>
+                      <th className="text-right px-4 py-3 font-medium">구독자</th>
+                      <th className="text-right px-4 py-3 font-medium">총 조회수</th>
+                      <th className="text-right px-4 py-3 font-medium">영상 수</th>
+                      <th className="text-right px-4 py-3 font-medium">인게이지먼트</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {competitorChannels.map((ch) => {
+                      const stats = channelStats[ch.channel_id] || {};
+                      const engagement = channelEngagementMap[ch.channel_id] || 0;
+                      return (
+                        <tr key={ch.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {ch.thumbnail ? (
+                                <img src={ch.thumbnail} alt="" className="w-7 h-7 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+                                  <Youtube size={12} className="text-gray-400" />
+                                </div>
+                              )}
+                              <span className="font-medium text-gray-700 truncate max-w-[160px]">{ch.name}</span>
+                            </div>
+                          </td>
+                          <td className="text-right px-4 py-3 font-semibold text-gray-800">{formatNumber(stats.subscribers || 0)}</td>
+                          <td className="text-right px-4 py-3 text-gray-600">{formatNumber(stats.totalViews || 0)}</td>
+                          <td className="text-right px-4 py-3 text-gray-600">{stats.videoCount || 0}</td>
+                          <td className="text-right px-4 py-3"><EngagementBadge rate={engagement} /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* ===== 최근 콘텐츠 ===== */}
-      {recentVideos.length > 0 && (
+      {/* ================================================================ */}
+      {/* TAB 2: 콘텐츠 분석 */}
+      {/* ================================================================ */}
+      {activeTab === 'content' && (
+        <div className="space-y-6">
+          {enrichedVideos.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+              <Play size={48} className="text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">영상 데이터가 없습니다</h3>
+              <p className="text-sm text-gray-400">
+                채널을 등록하고 새로고침 버튼을 눌러 영상 데이터를 가져오세요.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* 성과 요약 바 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {topPerformers[0] && (
+                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm p-4 border border-yellow-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy size={16} className="text-yellow-500" />
+                      <span className="text-xs font-medium text-yellow-700">최고 인게이지먼트</span>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 line-clamp-1">{topPerformers[0].title}</p>
+                    <p className="text-lg font-bold text-yellow-600 mt-1">{topPerformers[0].engagementRate.toFixed(2)}%</p>
+                  </div>
+                )}
+                <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye size={16} className="text-blue-500" />
+                    <span className="text-xs font-medium text-gray-500">평균 조회수</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">
+                    {formatNumber(
+                      enrichedVideos.length > 0
+                        ? Math.round(enrichedVideos.reduce((s, v) => s + (v.views || 0), 0) / enrichedVideos.length)
+                        : 0,
+                    )}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Video size={16} className="text-purple-500" />
+                    <span className="text-xs font-medium text-gray-500">분석 영상</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900">{enrichedVideos.length}개</p>
+                </div>
+              </div>
+
+              {/* Top 3 퍼포머 */}
+              {topPerformers.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                    <Trophy size={15} className="text-yellow-500" />
+                    Top 퍼포머 (인게이지먼트 기준)
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {topPerformers.map((video, idx) => (
+                      <a
+                        key={video.video_id || video.videoId || idx}
+                        href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
+                      >
+                        <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-yellow-400 text-white text-xs font-bold flex items-center justify-center shadow">
+                          {idx + 1}
+                        </div>
+                        <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                          {video.thumbnail && (
+                            <img
+                              src={video.thumbnail}
+                              alt={video.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
+                            {video.title}
+                          </h3>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex items-center gap-2">
+                              <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
+                              <EngagementBadge rate={video.engagementRate} />
+                            </div>
+                            <span className="flex items-center gap-0.5">
+                              <ThumbsUp size={11} />{formatNumber(video.likes)}
+                              <MessageCircle size={11} className="ml-1" />{formatNumber(video.comments)}
+                            </span>
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 정렬 + 전체 영상 그리드 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Play size={15} className="text-indigo-500" />
+                    전체 영상 성과
+                  </h2>
+                  <div className="flex items-center gap-1.5">
+                    <ArrowUpDown size={13} className="text-gray-400" />
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setVideoSortBy(opt.key)}
+                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                          videoSortBy === opt.key
+                            ? 'bg-indigo-100 text-indigo-700 font-medium'
+                            : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sortedVideos.map((video, idx) => (
+                    <a
+                      key={video.video_id || video.videoId || idx}
+                      href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+                    >
+                      <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                        {video.thumbnail ? (
+                          <img
+                            src={video.thumbnail}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-300">
+                            <Play size={40} />
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                          <Youtube size={10} /> YouTube
+                        </div>
+                        {video.duration && (
+                          <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                            <Clock size={9} /> {formatDuration(video.duration)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
+                          {video.title}
+                        </h3>
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
+                            <span className="flex items-center gap-0.5"><ThumbsUp size={12} />{formatNumber(video.likes)}</span>
+                            <span className="flex items-center gap-0.5"><MessageCircle size={12} />{formatNumber(video.comments)}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-gray-400">인게이지먼트</span>
+                            <EngagementBadge rate={video.engagementRate} />
+                          </div>
+                          <span className="text-[11px] text-gray-400">{formatFullDate(video.published_at || video.publishedAt)}</span>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ================================================================ */}
+      {/* TAB 3: 업계 모니터링 */}
+      {/* ================================================================ */}
+      {activeTab === 'monitoring' && (
         <div>
-          <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2 mb-4">
-            <Play size={18} className="text-indigo-500" />
-            최근 콘텐츠 성과
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentVideos.slice(0, 6).map((video, idx) => (
-              <a
-                key={video.video_id || video.videoId || idx}
-                href={`https://youtube.com/watch?v=${video.video_id || video.videoId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+            <div className="flex items-center gap-2 mb-3">
+              <input
+                type="text"
+                value={newKeywordInput}
+                onChange={(e) => setNewKeywordInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
+                placeholder="모니터링 키워드 입력..."
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <button
+                onClick={handleAddKeyword}
+                className="px-3 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-colors"
               >
-                <div className="aspect-video bg-gray-100 relative overflow-hidden">
-                  {video.thumbnail ? (
-                    <img
-                      src={video.thumbnail}
-                      alt={video.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300">
-                      <Play size={40} />
+                <Plus size={15} />
+              </button>
+            </div>
+
+            {monitoringKeywords.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {monitoringKeywords.map((kw) => (
+                  <span
+                    key={kw.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full"
+                  >
+                    <Tag size={11} />
+                    {kw.keyword}
+                    <button
+                      onClick={() => handleRemoveKeyword(kw.id)}
+                      className="ml-0.5 hover:text-red-500 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  onClick={handleMonitoringSearch}
+                  disabled={isSearching}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full hover:bg-emerald-600 transition-colors disabled:opacity-50"
+                >
+                  {isSearching ? <Loader size={12} className="animate-spin" /> : <Search size={12} />}
+                  {isSearching ? '검색 중...' : '모니터링 실행'}
+                </button>
+              </div>
+            )}
+
+            {monitoringResults.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                {monitoringResults.slice(0, 12).map((result, idx) => (
+                  <a
+                    key={result.videoId || idx}
+                    href={result.videoId ? `https://youtube.com/watch?v=${result.videoId}` : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                  >
+                    {result.thumbnail && (
+                      <img src={result.thumbnail} alt="" className="w-24 h-16 rounded object-cover flex-shrink-0" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h4 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{result.title}</h4>
+                      <p className="text-[11px] text-gray-400">{result.channelTitle}</p>
+                      <p className="text-[11px] text-gray-400">{formatFullDate(result.publishedAt)}</p>
                     </div>
-                  )}
-                  <div className="absolute top-2 right-2 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
-                    <Youtube size={10} className="inline mr-0.5" /> YouTube
-                  </div>
-                </div>
-                <div className="p-3">
-                  <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
-                    {video.title}
-                  </h3>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
-                      <span className="flex items-center gap-0.5"><ThumbsUp size={12} />{formatNumber(video.likes)}</span>
-                      <span className="flex items-center gap-0.5"><MessageCircle size={12} />{formatNumber(video.comments)}</span>
-                    </div>
-                    <span>{formatFullDate(video.published_at || video.publishedAt)}</span>
-                  </div>
-                </div>
-              </a>
-            ))}
+                    <ExternalLink size={12} className="text-gray-300 flex-shrink-0 mt-1" />
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {monitoringKeywords.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-4">
+                키워드를 등록하면 YouTube에서 관련 영상을 검색합니다
+              </p>
+            )}
           </div>
         </div>
       )}
 
-      {/* ===== 업계 모니터링 ===== */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-800 flex items-center gap-2 mb-4">
-          <Search size={18} className="text-emerald-500" />
-          업계 모니터링
-        </h2>
-        <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              type="text"
-              value={newKeywordInput}
-              onChange={(e) => setNewKeywordInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
-              placeholder="모니터링 키워드 입력..."
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-            />
+      {/* ================================================================ */}
+      {/* TAB 4: AI 인사이트 */}
+      {/* ================================================================ */}
+      {activeTab === 'insights' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-purple-500" />
+              <h2 className="text-base font-semibold text-gray-800">AI SNS 인사이트</h2>
+              {insightGeneratedAt && (
+                <span className="text-xs text-gray-400 ml-2">마지막 생성: {insightGeneratedAt}</span>
+              )}
+            </div>
             <button
-              onClick={handleAddKeyword}
-              className="px-3 py-2 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 transition-colors"
+              onClick={handleGenerateInsight}
+              disabled={isGeneratingInsight}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-sm font-medium rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-sm"
             >
-              <Plus size={15} />
+              <Sparkles size={15} className={isGeneratingInsight ? 'animate-spin' : ''} />
+              {isGeneratingInsight ? '분석 중...' : '인사이트 생성'}
             </button>
           </div>
 
-          {monitoringKeywords.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {monitoringKeywords.map((kw) => (
-                <span
-                  key={kw.id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full"
-                >
-                  <Tag size={11} />
-                  {kw.keyword}
-                  <button
-                    onClick={() => handleRemoveKeyword(kw.id)}
-                    className="ml-0.5 hover:text-red-500 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
+          <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100 p-6">
+            {isGeneratingInsight ? (
+              <div className="flex items-center gap-2 py-12 justify-center text-sm text-indigo-600">
+                <Loader className="w-5 h-5 animate-spin" />
+                Claude AI가 채널 데이터, 영상 성과, 인게이지먼트를 분석하고 있습니다...
+              </div>
+            ) : aiInsight ? (
+              <div
+                className="prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <Sparkles size={40} className="text-purple-200 mx-auto mb-3" />
+                <p className="text-sm text-gray-400 mb-1">아직 생성된 인사이트가 없습니다.</p>
+                <p className="text-xs text-gray-400">
+                  채널을 등록하고 데이터를 새로고침한 뒤, 인사이트를 생성해보세요.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 분석 데이터 요약 */}
+          {(ownChannels.length > 0 || enrichedVideos.length > 0) && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+              <h3 className="text-xs font-semibold text-gray-500 mb-3">AI에게 전달되는 분석 데이터</h3>
+              <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                  <Youtube size={12} className="text-red-500" />
+                  우리 채널 {ownChannels.length}개
                 </span>
-              ))}
-              <button
-                onClick={handleMonitoringSearch}
-                disabled={isSearching}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full hover:bg-emerald-600 transition-colors disabled:opacity-50"
-              >
-                {isSearching ? <Loader size={12} className="animate-spin" /> : <Search size={12} />}
-                {isSearching ? '검색 중...' : '모니터링 실행'}
-              </button>
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                  <BarChart3 size={12} className="text-blue-500" />
+                  경쟁 채널 {competitorChannels.length}개
+                </span>
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                  <Video size={12} className="text-purple-500" />
+                  최근 영상 {Math.min(enrichedVideos.length, 12)}개
+                </span>
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                  <Activity size={12} className="text-green-500" />
+                  인게이지먼트 데이터 포함
+                </span>
+              </div>
             </div>
-          )}
-
-          {monitoringResults.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
-              {monitoringResults.slice(0, 9).map((result, idx) => (
-                <a
-                  key={result.videoId || idx}
-                  href={result.videoId ? `https://youtube.com/watch?v=${result.videoId}` : '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  {result.thumbnail && (
-                    <img src={result.thumbnail} alt="" className="w-24 h-16 rounded object-cover flex-shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{result.title}</h4>
-                    <p className="text-[11px] text-gray-400">{result.channelTitle}</p>
-                    <p className="text-[11px] text-gray-400">{formatFullDate(result.publishedAt)}</p>
-                  </div>
-                  <ExternalLink size={12} className="text-gray-300 flex-shrink-0 mt-1" />
-                </a>
-              ))}
-            </div>
-          )}
-
-          {monitoringKeywords.length === 0 && (
-            <p className="text-sm text-gray-400 text-center py-4">
-              키워드를 등록하면 YouTube에서 관련 영상을 검색합니다
-            </p>
           )}
         </div>
-      </div>
+      )}
 
       {/* ===== 채널 관리 모달 ===== */}
       {showChannelModal && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowChannelModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowChannelModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-lg font-bold text-gray-900">채널 관리</h2>
@@ -706,7 +1175,11 @@ export default function Analytics() {
                           <p className="text-sm font-medium text-gray-700 truncate">{ch.name}</p>
                           <p className="text-[11px] text-gray-400">{ch.channel_id}</p>
                         </div>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ch.is_own ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            ch.is_own ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                          }`}
+                        >
                           {ch.is_own ? '우리' : '경쟁'}
                         </span>
                         <button
@@ -723,8 +1196,10 @@ export default function Analytics() {
 
               <div className="mt-5 p-3 bg-amber-50 rounded-lg">
                 <p className="text-xs text-amber-700 leading-relaxed">
-                  <strong>채널 ID 찾는 방법:</strong><br />
-                  YouTube 채널 페이지 URL에서 <code className="bg-amber-100 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.<br />
+                  <strong>채널 ID 찾는 방법:</strong>
+                  <br />
+                  YouTube 채널 페이지 URL에서 <code className="bg-amber-100 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.
+                  <br />
                   또는 <code className="bg-amber-100 px-1 rounded">@handle</code> 형식도 지원합니다.
                 </p>
               </div>
