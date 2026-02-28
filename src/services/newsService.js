@@ -122,4 +122,31 @@ export const newsService = {
       .gt('id', 0);
     if (error) throw error;
   },
+
+  // ---- AI 인사이트 생성 (Gemini) ----
+  async generateInsights(articles) {
+    try {
+      const res = await fetch(`${API_BASE}/api/news/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          articles: articles.slice(0, 20).map((a) => ({
+            title: a.title,
+            summary: a.summary,
+            date: a.date,
+            source: a.source,
+            publisher: a.publisher,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Insights API error: ${res.status}`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.error('AI 인사이트 생성 실패:', err);
+      throw err;
+    }
+  },
 };
