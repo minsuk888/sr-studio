@@ -535,10 +535,10 @@ export default function Meetings() {
             <div className="space-y-4">
               {/* 회의 기본 정보 */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">{selected.title}</h2>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-xs text-gray-500">
                       <span className="flex items-center gap-1"><Calendar size={12} />{selected.date}</span>
                       {selected.start_time && (
                         <span className="flex items-center gap-1">
@@ -550,7 +550,7 @@ export default function Meetings() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <select
                       value={selected.status}
                       onChange={(e) => handleStatusChange(e.target.value)}
@@ -563,7 +563,7 @@ export default function Meetings() {
                     {(selected.status === 'scheduled' || selected.status === 'in_progress') && (
                       <button
                         onClick={handleEnterLiveMode}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white text-xs font-medium rounded-lg hover:bg-brand-600 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white text-xs font-medium rounded-lg hover:bg-brand-600 transition-colors whitespace-nowrap"
                       >
                         <Presentation size={14} />
                         {selected.status === 'scheduled' ? '회의 시작' : '라이브 모드'}
@@ -619,14 +619,15 @@ export default function Meetings() {
                         <span className="text-sm text-gray-700 flex-1 font-medium">{agenda.title}</span>
                         <button
                           onClick={() => setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-brand-50 text-gray-300 hover:text-brand-500 transition-all cursor-pointer"
-                          title="세부 안건 추가"
+                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-all cursor-pointer"
+                          title="세부 업무 추가"
                         >
-                          <Plus size={12} />
+                          <Plus size={11} />
+                          <span>세부항목</span>
                         </button>
                         <button
                           onClick={() => handleRemoveAgenda(agenda.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
+                          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
                         >
                           <X size={12} />
                         </button>
@@ -638,7 +639,7 @@ export default function Meetings() {
                           <span className="text-xs text-gray-500 flex-1">{sub.title}</span>
                           <button
                             onClick={() => handleRemoveAgenda(sub.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-200 hover:text-red-500 transition-all cursor-pointer"
+                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
                           >
                             <X size={10} />
                           </button>
@@ -652,7 +653,7 @@ export default function Meetings() {
                             value={newSubAgendaTitle}
                             onChange={(e) => setNewSubAgendaTitle(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddSubAgenda()}
-                            placeholder="세부 안건..."
+                            placeholder="세부 업무 항목..."
                             className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                             autoFocus
                           />
@@ -681,7 +682,7 @@ export default function Meetings() {
                     value={newAgendaTitle}
                     onChange={(e) => setNewAgendaTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAgenda()}
-                    placeholder="안건 추가..."
+                    placeholder="새 안건 제목을 입력하세요..."
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                   <button

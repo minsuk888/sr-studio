@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Newspaper,
   Search,
@@ -108,17 +108,6 @@ export default function News() {
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
-  const [insightExpanded, setInsightExpanded] = useState(false);
-  const insightRef = useRef(null);
-  const [insightOverflows, setInsightOverflows] = useState(false);
-
-  useEffect(() => {
-    if (insightRef.current && aiInsight) {
-      requestAnimationFrame(() => {
-        setInsightOverflows(insightRef.current.scrollHeight > 384);
-      });
-    }
-  }, [aiInsight, insightExpanded]);
 
   const addKeyword = useCallback(() => {
     const kw = newKeywordInput.trim();
@@ -272,7 +261,7 @@ export default function News() {
       `}</style>
 
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
             <Newspaper className="w-7 h-7 text-brand-500" />
@@ -316,30 +305,10 @@ export default function News() {
                 <span className="text-sm text-slate-500">Claude AI가 {newsArticles.length}개 기사를 분석하고 있습니다...</span>
               </div>
             ) : (
-              <div className="relative">
-                <div
-                  ref={insightRef}
-                  className="transition-all duration-300"
-                  style={{
-                    overflow: insightExpanded ? 'visible' : 'hidden',
-                    maxHeight: insightExpanded ? 'none' : '384px',
-                  }}
-                  dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
-                />
-                {!insightExpanded && insightOverflows && (
-                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
-                )}
-                {insightOverflows && (
-                  <div className="flex justify-center mt-2 pt-1">
-                    <button
-                      onClick={() => setInsightExpanded(!insightExpanded)}
-                      className="text-xs font-medium text-amber-600 hover:text-amber-700 px-4 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer"
-                    >
-                      {insightExpanded ? '접기 ▲' : '더보기 ▼'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              <div
+                className="prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+              />
             )}
           </div>
         </div>
@@ -459,7 +428,7 @@ export default function News() {
       )}
 
       {/* SOURCE TABS + SEARCH */}
-      <div className="flex items-center gap-1 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1 border-b border-slate-200">
         {SOURCE_TABS.map((tab) => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`relative px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${activeTab === tab.key ? 'text-brand-500' : 'text-slate-500 hover:text-slate-700'}`}>
             <span className="flex items-center gap-1.5">
@@ -469,9 +438,9 @@ export default function News() {
             {activeTab === tab.key && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-500 rounded-full" />}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-3 pr-2 py-2">
+        <div className="flex items-center gap-3 sm:ml-auto pr-2 py-2">
           <div className="relative">
-            <input type="text" placeholder="기사 검색..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-48 pl-3 pr-9 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition bg-white" />
+            <input type="text" placeholder="기사 검색..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} className="w-full sm:w-48 pl-3 pr-9 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition bg-white" />
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           </div>
           <span className="text-xs text-slate-400">자동 스크롤</span>
@@ -482,7 +451,7 @@ export default function News() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="flex gap-5">
+      <div className="flex flex-col lg:flex-row gap-5">
         {/* Articles */}
         <div className="flex-1 min-w-0 space-y-4">
           {filteredArticles.length === 0 && (

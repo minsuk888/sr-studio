@@ -109,6 +109,7 @@ const PLATFORM_CONFIG = {
 const TABS = [
   { key: 'overview', label: '채널 개요', icon: BarChart3 },
   { key: 'content', label: '콘텐츠 분석', icon: Play },
+  { key: 'comments', label: '댓글 분석', icon: MessageCircle },
   { key: 'monitoring', label: '업계 모니터링', icon: Search },
   { key: 'insights', label: 'AI 인사이트', icon: Sparkles },
 ];
@@ -826,19 +827,19 @@ export default function Analytics() {
       </div>
 
       {/* ===== 탭 네비게이션 ===== */}
-      <div className="flex items-center gap-1 border-b border-slate-200">
+      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`relative px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              className={`relative px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 activeTab === tab.key ? 'text-red-500' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               <span className="flex items-center gap-1.5">
-                <Icon size={15} />
+                <Icon size={15} className="shrink-0" />
                 {tab.label}
               </span>
               {activeTab === tab.key && (
@@ -916,22 +917,22 @@ export default function Analytics() {
                 {/* 채널 프로필 헤더 */}
                 <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
                   {/* 채널 프로필 헤더 — 확대 */}
-                  <div className="flex items-center gap-5 mb-6">
+                  <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-6">
                     {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return ch.thumbnail ? (
-                      <img src={ch.thumbnail} alt={ch.name} className={`w-20 h-20 rounded-full object-cover ring-3 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
+                      <img src={ch.thumbnail} alt={ch.name} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-3 shrink-0 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
                     ) : (
-                      <div className={`w-20 h-20 rounded-full ${cfg.bgColor} flex items-center justify-center`}>
+                      <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full ${cfg.bgColor} flex items-center justify-center shrink-0`}>
                         <PIcon size={32} className={cfg.textColor} />
                       </div>
                     ); })()}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h2 className="text-xl font-bold text-gray-900">{ch.name}</h2>
+                    <div className="flex-1 min-w-0 text-center sm:text-left">
+                      <div className="flex items-center justify-center sm:justify-start gap-2 mb-1 flex-wrap">
+                        <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{ch.name}</h2>
                         {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return <PIcon size={18} className={cfg.textColor} />; })()}
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">우리 채널</span>
                       </div>
                       {ch.handle && <p className="text-sm text-gray-400 mb-2">{ch.handle}</p>}
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500 flex-wrap">
                         <span className="flex items-center gap-1"><Users size={13} /> 구독자 <strong className="text-gray-900">{formatNumber(stats.subscribers || 0)}</strong></span>
                         <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-gray-900">{formatNumber(stats.totalViews || 0)}</strong></span>
                         <span className="flex items-center gap-1"><Video size={13} /> 영상 <strong className="text-gray-900">{formatNumber(stats.videoCount || 0)}</strong></span>
@@ -939,7 +940,7 @@ export default function Analytics() {
                     </div>
                   </div>
                   {/* 주요 KPI 3개 — 크게 */}
-                  <div className="grid grid-cols-3 gap-4 mb-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-3">
                     {[
                       { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
                       { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -955,7 +956,7 @@ export default function Analytics() {
                     ))}
                   </div>
                   {/* 보조 KPI 3개 — 작게 */}
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
                       { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
                       { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
@@ -1747,6 +1748,110 @@ export default function Analytics() {
       {/* ================================================================ */}
       {/* TAB 3: 업계 모니터링 */}
       {/* ================================================================ */}
+            {activeTab === 'comments' && (
+        <div className="space-y-5">
+          {/* 댓글 분석 메인 */}
+          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+            <div className="flex items-center gap-2 mb-1">
+              <MessageCircle size={18} className="text-brand-500" />
+              <h2 className="text-base font-bold text-gray-800">YouTube 댓글 AI 분석</h2>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">자사 채널 영상의 댓글을 수집하고 Claude AI로 감성 분석합니다</p>
+
+            {channels.filter(ch => ch.is_own).length === 0 ? (
+              <div className="text-center py-8 text-sm text-gray-400">
+                자사 채널을 먼저 등록해주세요. (채널 개요 탭 → 채널 추가)
+              </div>
+            ) : (
+              <>
+                {/* Video selector for comment analysis */}
+                <div className="mb-5">
+                  <p className="text-sm font-medium text-gray-600 mb-3">분석할 영상을 선택하세요:</p>
+                  {enrichedVideos.filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId)))).length === 0 && (
+                    <div className="text-center py-6 bg-gray-50 rounded-xl text-sm text-gray-400">
+                      자사 채널 영상이 아직 로드되지 않았습니다. 채널 개요 탭에서 새로고침을 실행해주세요.
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {enrichedVideos
+                      .filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId))))
+                      .slice(0, 9)
+                      .map((v) => (
+                        <button
+                          key={v.videoId || v.video_id}
+                          onClick={() => handleCommentAnalysis(v)}
+                          disabled={isAnalyzingComments}
+                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            (selectedVideoForComments?.videoId === (v.videoId || v.video_id) || selectedVideoForComments?.video_id === (v.video_id || v.videoId))
+                              ? 'bg-brand-50 border-brand-300 shadow-sm'
+                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                          } disabled:opacity-50`}
+                        >
+                          {v.thumbnail && (
+                            <img src={v.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-gray-700 line-clamp-2 leading-snug">{v.title}</p>
+                            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
+                              <span>{formatNumber(v.views)} 조회</span>
+                              <span>{formatNumber(v.comments)} 댓글</span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Analysis results */}
+                {isAnalyzingComments && (
+                  <div className="flex items-center justify-center py-12 gap-3 bg-gray-50 rounded-xl">
+                    <Loader className="w-5 h-5 animate-spin text-brand-500" />
+                    <span className="text-sm text-gray-500">댓글을 수집하고 AI 분석 중입니다...</span>
+                  </div>
+                )}
+
+                {commentAnalysis && !isAnalyzingComments && (
+                  <div className="mt-4">
+                    {commentAnalysis.disabled && (
+                      <div className="text-center py-8 bg-gray-50 rounded-xl">
+                        <MessageCircle size={32} className="text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-400">이 영상은 댓글이 비활성화되어 있습니다.</p>
+                      </div>
+                    )}
+                    {commentAnalysis.empty && (
+                      <div className="text-center py-8 bg-gray-50 rounded-xl">
+                        <MessageCircle size={32} className="text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-400">댓글이 없습니다.</p>
+                      </div>
+                    )}
+                    {commentAnalysis.error && (
+                      <div className="text-center py-8 bg-red-50 rounded-xl">
+                        <p className="text-sm text-red-500">{commentAnalysis.error}</p>
+                      </div>
+                    )}
+                    {commentAnalysis.analysis && (
+                      <div className="bg-gradient-to-br from-brand-50/50 via-white to-amber-50/30 rounded-xl border border-brand-100 p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles size={16} className="text-amber-500" />
+                          <h3 className="text-sm font-bold text-gray-800">AI 감성 분석 결과</h3>
+                          <span className="text-[11px] text-gray-400 ml-auto">
+                            {commentAnalysis.analyzedCount}개 댓글 분석 · {commentAnalysis.generatedAt ? new Date(commentAnalysis.generatedAt).toLocaleString('ko-KR') : ''}
+                          </span>
+                        </div>
+                        <div
+                          className="prose-sm max-w-none text-sm text-gray-600 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-700"
+                          dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'monitoring' && (
         <div>
           <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
