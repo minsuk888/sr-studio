@@ -288,7 +288,7 @@ export default function News() {
 
       {/* AI INSIGHT PANEL */}
       {showInsight && (
-        <div className="bg-gradient-to-br from-amber-50 via-white to-orange-50 rounded-xl shadow-sm border border-amber-200 overflow-hidden">
+        <div className="bg-gradient-to-br from-amber-50 via-white to-orange-50 rounded-xl shadow-sm border border-amber-200">
           <div className="flex items-center justify-between px-5 py-3 bg-amber-50/80 border-b border-amber-200">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4.5 h-4.5 text-amber-500" />
@@ -342,7 +342,7 @@ export default function News() {
             type="text"
             value={newKeywordInput}
             onChange={(e) => setNewKeywordInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addKeyword(); } }}
             placeholder="키워드 입력 후 Enter 또는 + 클릭"
             className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition bg-white"
           />

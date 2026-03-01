@@ -597,7 +597,7 @@ export default function Meetings() {
                     type="text"
                     value={newAgendaTitle}
                     onChange={(e) => setNewAgendaTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddAgenda()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAgenda()}
                     placeholder="안건 추가..."
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
@@ -692,7 +692,7 @@ export default function Meetings() {
                         {assignee && (
                           <span className="text-[10px] text-gray-400">{assignee.avatar} {assignee.name}</span>
                         )}
-                        {!action.task_id && !isDone && (
+                        {!action.task_id && (
                           <button
                             onClick={() => handleConvertToTask(action)}
                             className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-2 py-0.5 text-[10px] bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-all"
@@ -713,7 +713,7 @@ export default function Meetings() {
                     type="text"
                     value={newActionTitle}
                     onChange={(e) => setNewActionTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddAction()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAction()}
                     placeholder="액션 아이템 추가..."
                     className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />

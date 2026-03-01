@@ -174,6 +174,8 @@ export default function Analytics() {
   // ---- 콘텐츠 분석 정렬 + 기간 필터 ----
   const [videoSortBy, setVideoSortBy] = useState('date');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [selectedChannelFilter, setSelectedChannelFilter] = useState('all');
+  const [isStaleData, setIsStaleData] = useState(false);
 
   // ---- UI ----
   const [loaded, setLoaded] = useState(false);
@@ -207,9 +209,17 @@ export default function Analytics() {
     });
   }, [enrichedVideos, dateRange]);
 
+  // 채널 필터 적용 영상
+  const filteredByChannelVideos = useMemo(() => {
+    if (selectedChannelFilter === 'all') return filteredByDateVideos;
+    return filteredByDateVideos.filter(
+      (v) => (v.channel_id || v.channelId) === selectedChannelFilter,
+    );
+  }, [filteredByDateVideos, selectedChannelFilter]);
+
   // 정렬된 영상
   const sortedVideos = useMemo(() => {
-    const sorted = [...filteredByDateVideos];
+    const sorted = [...filteredByChannelVideos];
     switch (videoSortBy) {
       case 'views':
         sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
@@ -227,12 +237,12 @@ export default function Analytics() {
         );
     }
     return sorted;
-  }, [filteredByDateVideos, videoSortBy]);
+  }, [filteredByChannelVideos, videoSortBy]);
 
   // Top 3 퍼포머
   const topPerformers = useMemo(
-    () => [...filteredByDateVideos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 3),
-    [filteredByDateVideos],
+    () => [...filteredByChannelVideos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 3),
+    [filteredByChannelVideos],
   );
 
   // KPI 집계
@@ -282,6 +292,14 @@ export default function Analytics() {
           ]);
           setRecentVideos(videos || []);
           setChannelStats(latestStats || {});
+
+          // Check for stale data
+          if (videos && videos.length > 0) {
+            const hasValidViews = videos.some((v) => Number(v.views) > 0);
+            if (!hasValidViews) {
+              setIsStaleData(true);
+            }
+          }
         }
 
         // 성장 차트 데이터 로드
@@ -371,6 +389,7 @@ export default function Analytics() {
           Object.values(dateMap).sort((a, b) => new Date(a.date) - new Date(b.date)),
         );
       }
+      setIsStaleData(false);
     } catch (err) {
       console.error('데이터 새로고침 실패:', err);
       alert('데이터 새로고침에 실패했습니다.');
@@ -484,7 +503,7 @@ export default function Analytics() {
 
   // ---- 콘텐츠 AI 분석 (인라인) ----
   const handleContentAiAnalysis = async () => {
-    if (filteredByDateVideos.length === 0) {
+    if (filteredByChannelVideos.length === 0) {
       alert('분석할 콘텐츠가 없습니다.');
       return;
     }
@@ -506,7 +525,7 @@ export default function Analytics() {
           subscribers: channelStats[ch.channel_id]?.subscribers || 0,
           totalViews: channelStats[ch.channel_id]?.totalViews || 0,
         }));
-      const videoData = filteredByDateVideos.slice(0, 20).map((v) => ({
+      const videoData = filteredByChannelVideos.slice(0, 20).map((v) => ({
         title: v.title,
         views: v.views,
         likes: v.likes,
@@ -597,7 +616,7 @@ export default function Analytics() {
     const grid = Array.from({ length: 7 }, () =>
       Array.from({ length: 24 }, () => ({ count: 0, totalViews: 0, totalEngagement: 0 })),
     );
-    filteredByDateVideos.forEach((v) => {
+    filteredByChannelVideos.forEach((v) => {
       const dt = new Date(v.published_at || v.publishedAt);
       if (isNaN(dt.getTime())) return;
       const day = (dt.getDay() + 6) % 7; // Mon=0 ... Sun=6
@@ -616,11 +635,11 @@ export default function Analytics() {
       }),
     );
     return { grid: processed, maxAvgViews };
-  }, [filteredByDateVideos]);
+  }, [filteredByChannelVideos]);
 
   // ---- 콘텐츠 탭 KPI 집계 ----
   const contentKpi = useMemo(() => {
-    const vids = filteredByDateVideos;
+    const vids = filteredByChannelVideos;
     if (vids.length === 0) return null;
     const totalViews = vids.reduce((s, v) => s + (v.views || 0), 0);
     const totalLikes = vids.reduce((s, v) => s + (v.likes || 0), 0);
@@ -649,7 +668,7 @@ export default function Analytics() {
       totalLikes,
       totalComments,
     };
-  }, [filteredByDateVideos, ownChannels, channelStats]);
+  }, [filteredByChannelVideos, ownChannels, channelStats]);
 
   // ---- 경쟁사 벤치마킹 레이더 데이터 ----
   const radarChartData = useMemo(() => {
@@ -795,6 +814,21 @@ export default function Analytics() {
       {/* ================================================================ */}
       {activeTab === 'overview' && channels.length > 0 && (
         <div className="space-y-6">
+              {isStaleData && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <RefreshCw size={16} className="text-amber-500" />
+                    <p className="text-sm text-amber-700">캐시된 데이터가 오래되었습니다. 새로고침하여 최신 데이터를 불러오세요.</p>
+                  </div>
+                  <button
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="px-3 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    새로고침
+                  </button>
+                </div>
+              )}
           {/* 채널 프로필 + KPI */}
           {ownChannels.map((ch, idx) => {
             const stats = channelStats[ch.channel_id] || {};
@@ -1241,6 +1275,42 @@ export default function Analytics() {
                     필터 적용: {filteredByDateVideos.length}개 / 전체 {enrichedVideos.length}개 콘텐츠
                   </p>
                 )}
+                {/* Channel filter */}
+                <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
+                  <span className="text-xs font-medium text-gray-500 mr-1">채널</span>
+                  <button
+                    onClick={() => setSelectedChannelFilter('all')}
+                    className={`px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer ${
+                      selectedChannelFilter === 'all'
+                        ? 'bg-indigo-100 text-indigo-700 font-medium'
+                        : 'text-gray-500 hover:bg-gray-100'
+                    }`}
+                  >
+                    전체 ({filteredByDateVideos.length})
+                  </button>
+                  {channels.map((ch) => {
+                    const chCount = filteredByDateVideos.filter(
+                      (v) => (v.channel_id || v.channelId) === ch.channel_id,
+                    ).length;
+                    if (chCount === 0) return null;
+                    return (
+                      <button
+                        key={ch.channel_id}
+                        onClick={() => setSelectedChannelFilter(ch.channel_id)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer ${
+                          selectedChannelFilter === ch.channel_id
+                            ? 'bg-indigo-100 text-indigo-700 font-medium'
+                            : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                      >
+                        {ch.thumbnail && (
+                          <img src={ch.thumbnail} alt="" className="w-4 h-4 rounded-full object-cover" />
+                        )}
+                        {ch.name} ({chCount})
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 성과 요약 바 */}
@@ -1341,7 +1411,7 @@ export default function Analytics() {
                   </div>
                   <button
                     onClick={handleContentAiAnalysis}
-                    disabled={isContentAiLoading || filteredByDateVideos.length === 0}
+                    disabled={isContentAiLoading || filteredByChannelVideos.length === 0}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-medium rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-sm"
                   >
                     <Sparkles size={13} className={isContentAiLoading ? 'animate-spin' : ''} />
@@ -1365,7 +1435,7 @@ export default function Analytics() {
               </div>
 
               {/* 게시 시간대 히트맵 */}
-              {filteredByDateVideos.length >= 3 && (
+              {filteredByChannelVideos.length >= 3 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                   <h2 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
                     <Clock size={15} className="text-orange-500" />
@@ -1528,7 +1598,7 @@ export default function Analytics() {
                 type="text"
                 value={newKeywordInput}
                 onChange={(e) => setNewKeywordInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddKeyword()}
+                onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddKeyword()}
                 placeholder="모니터링 키워드 입력..."
                 className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
@@ -1718,7 +1788,7 @@ export default function Analytics() {
                   type="text"
                   value={newChannelInput}
                   onChange={(e) => setNewChannelInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddChannel()}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddChannel()}
                   placeholder={PLATFORM_CONFIG[newChannelPlatform].idPlaceholder}
                   className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 ${PLATFORM_CONFIG[newChannelPlatform].ringColor} focus:border-transparent mb-3`}
                 />
