@@ -554,19 +554,26 @@ export default function Analytics() {
     setSelectedVideoForComments(video);
     setIsAnalyzingComments(true);
     try {
-      const { comments, disabled } = await analyticsService.fetchVideoComments(video.videoId || video.video_id);
-      if (disabled) {
+      // 통합 엔드포인트: 댓글 수집 + AI 분석을 한 번에 처리
+      const result = await analyticsService.fetchVideoComments(
+        video.videoId || video.video_id,
+        100,
+        { analyze: true, videoTitle: video.title }
+      );
+      if (result.disabled) {
         setCommentAnalysis({ disabled: true });
         return;
       }
-      if (comments.length === 0) {
+      if (!result.comments || result.comments.length === 0) {
         setCommentAnalysis({ empty: true });
         return;
       }
-      const result = await analyticsService.analyzeComments(comments, video.title);
       // Save to cache
       const channelId = video.channel_id || video.channelId;
-      await analyticsService.saveComments(video.videoId || video.video_id, channelId, comments, result.sentiments);
+      await analyticsService.saveComments(
+        video.videoId || video.video_id, channelId,
+        result.comments, result.sentiments || []
+      );
       setCommentAnalysis(result);
     } catch (err) {
       console.error('댓글 분석 실패:', err);

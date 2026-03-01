@@ -417,25 +417,14 @@ export const analyticsService = {
   // 댓글 수집 & AI 분석
   // ============================================
 
-  // 댓글 수집
-  async fetchVideoComments(videoId, maxResults = 100) {
+  // 댓글 수집 + AI 분석 (통합 엔드포인트)
+  async fetchVideoComments(videoId, maxResults = 100, { analyze = false, videoTitle = '' } = {}) {
     const res = await fetch(`${API_BASE}/api/sns/youtube-comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ videoId, maxResults }),
+      body: JSON.stringify({ videoId, maxResults, analyze, videoTitle }),
     });
     if (!res.ok) throw new Error(`댓글 조회 실패: ${res.status}`);
-    return res.json();
-  },
-
-  // 댓글 AI 분석
-  async analyzeComments(comments, videoTitle) {
-    const res = await fetch(`${API_BASE}/api/sns/comment-analysis`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ comments, videoTitle }),
-    });
-    if (!res.ok) throw new Error(`댓글 분석 실패: ${res.status}`);
     return res.json();
   },
 
