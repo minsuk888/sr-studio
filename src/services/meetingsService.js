@@ -77,6 +77,17 @@ export const meetingsService = {
     if (error) throw error;
   },
 
+  async updateAgenda(agendaId, updates) {
+    const { data, error } = await supabase
+      .from('meeting_agendas')
+      .update(updates)
+      .eq('id', agendaId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   // 회의록
   async saveMinutes(meetingId, content) {
     const { data, error } = await supabase

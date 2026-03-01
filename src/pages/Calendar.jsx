@@ -65,6 +65,7 @@ function getItemsForDay(day, tasks, calendarEvents) {
       priority: null,
       color: e.color,
       rawEvent: e,
+      rawDescription: e.description,
     }));
 
   return [...dayEvents, ...dayTasks];
@@ -79,7 +80,7 @@ export default function Calendar() {
   // modal state — shared for add / edit
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // null = add mode
-  const [eventForm, setEventForm] = useState({ title: '', date: '', type: 'meeting', color: '#6366f1' });
+  const [eventForm, setEventForm] = useState({ title: '', date: '', type: 'meeting', color: '#6366f1', description: '' });
 
   // delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
@@ -127,13 +128,13 @@ export default function Calendar() {
   const openAddModal = (date) => {
     const dateStr = date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
     setEditingEvent(null);
-    setEventForm({ title: '', date: dateStr, type: 'meeting', color: '#6366f1' });
+    setEventForm({ title: '', date: dateStr, type: 'meeting', color: '#6366f1', description: '' });
     setShowModal(true);
   };
 
   const openEditModal = (event) => {
     setEditingEvent(event);
-    setEventForm({ title: event.title, date: event.date, type: event.type, color: event.color || '#6366f1' });
+    setEventForm({ title: event.title, date: event.date, type: event.type, color: event.color || '#6366f1', description: event.description || '' });
     setShowModal(true);
   };
 
@@ -144,7 +145,7 @@ export default function Calendar() {
 
   const handleSaveEvent = () => {
     if (!eventForm.title.trim() || !eventForm.date) return;
-    const payload = { title: eventForm.title.trim(), date: eventForm.date, type: eventForm.type, color: eventForm.color };
+    const payload = { title: eventForm.title.trim(), date: eventForm.date, type: eventForm.type, color: eventForm.color, description: eventForm.description.trim() || null };
     if (editingEvent) {
       updateCalendarEvent(editingEvent.id, payload);
     } else {
@@ -282,6 +283,16 @@ export default function Calendar() {
                     <button key={c.name} onClick={() => setEventForm({ ...eventForm, color: c.value })} className={`w-8 h-8 rounded-full transition-all cursor-pointer ${eventForm.color === c.value ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-105'}`} style={{ backgroundColor: c.value }} />
                   ))}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">메모</label>
+                <textarea
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                  placeholder="일정 메모를 입력하세요 (선택사항)"
+                  rows={3}
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors resize-y"
+                />
               </div>
             </div>
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
@@ -434,6 +445,9 @@ function WeekViewItem({ item, tasks, calendarEvents, getMemberName, openEditModa
         <span className="font-medium leading-tight">{item.title}</span>
       </div>
       <div className="text-[10px] opacity-80 mt-1">{item.type === 'meeting' ? '미팅' : '이벤트'}</div>
+      {item.rawDescription && (
+        <div className="text-[9px] opacity-70 mt-0.5 line-clamp-2">{item.rawDescription}</div>
+      )}
       <div className="absolute top-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
           onClick={(e) => { e.stopPropagation(); if (raw) openEditModal(raw); }}

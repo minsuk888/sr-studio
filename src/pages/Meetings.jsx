@@ -16,9 +16,11 @@ import {
   ChevronRight,
   Save,
   ArrowRight,
+  Presentation,
 } from 'lucide-react';
 import { meetingsService } from '../services/meetingsService';
 import { useApp } from '../context/AppContext';
+import MeetingLiveView from '../components/MeetingLiveView';
 
 const STATUS_CONFIG = {
   scheduled: { label: '예정', color: 'text-blue-600', bg: 'bg-blue-50', dot: 'bg-blue-400' },
@@ -69,6 +71,9 @@ export default function Meetings() {
   // AI 요약
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+
+  // 라이브 모드
+  const [isLiveMode, setIsLiveMode] = useState(false);
 
   // 로드
   useEffect(() => {
@@ -178,6 +183,89 @@ export default function Meetings() {
       );
     } catch (err) {
       alert('안건 삭제 실패: ' + err.message);
+    }
+  };
+
+  // 안건 업데이트 (라이브 모드)
+  const handleUpdateAgenda = async (agendaId, updates) => {
+    try {
+      await meetingsService.updateAgenda(agendaId, updates);
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === selected?.id
+            ? {
+                ...m,
+                meeting_agendas: (m.meeting_agendas || []).map((a) =>
+                  a.id === agendaId ? { ...a, ...updates } : a
+                ),
+              }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('안건 업데이트 실패:', err);
+    }
+  };
+
+  // 라이브 모드 진입
+  const handleEnterLiveMode = async () => {
+    if (!selected || (selected.meeting_agendas || []).length === 0) {
+      alert('회의에 안건을 추가한 후 라이브 모드를 시작하세요.');
+      return;
+    }
+    if (selected.status === 'scheduled') {
+      await handleStatusChange('in_progress');
+    }
+    setIsLiveMode(true);
+  };
+
+  // 라이브 모드 종료
+  const handleExitLiveMode = () => {
+    setIsLiveMode(false);
+  };
+
+  // 회의 완료 (라이브 모드에서)
+  const handleCompleteMeeting = async () => {
+    if (!selected) return;
+    // 안건별 노트를 회의록으로 합치기
+    const agendas = (selected.meeting_agendas || []).sort((a, b) => a.sort_order - b.sort_order);
+    const compiledMinutes = agendas
+      .filter((a) => a.notes)
+      .map((a, i) => `## ${i + 1}. ${a.title}\n${a.notes}`)
+      .join('\n\n');
+    if (compiledMinutes) {
+      try {
+        await meetingsService.saveMinutes(selected.id, compiledMinutes);
+        setMinutesContent(compiledMinutes);
+        setMeetings((prev) =>
+          prev.map((m) =>
+            m.id === selected.id
+              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: compiledMinutes }] }
+              : m
+          )
+        );
+      } catch (err) {
+        console.error('회의록 저장 실패:', err);
+      }
+    }
+    await handleStatusChange('completed');
+    setIsLiveMode(false);
+  };
+
+  // 라이브 모드 액션 아이템 추가
+  const handleLiveAddAction = async (item) => {
+    if (!selected) return;
+    try {
+      const created = await meetingsService.addActionItem(selected.id, item);
+      setMeetings((prev) =>
+        prev.map((m) =>
+          m.id === selected.id
+            ? { ...m, meeting_action_items: [...(m.meeting_action_items || []), created] }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('액션 아이템 추가 실패:', err);
     }
   };
 
@@ -398,6 +486,17 @@ export default function Meetings() {
               <FileText size={48} className="text-gray-200 mb-4" />
               <p className="text-sm text-gray-400">좌측에서 회의를 선택하거나 새 회의를 추가하세요</p>
             </div>
+          ) : isLiveMode ? (
+            <MeetingLiveView
+              meeting={selected}
+              members={members}
+              agendas={(selected.meeting_agendas || []).sort((a, b) => a.sort_order - b.sort_order)}
+              actionItems={selected.meeting_action_items || []}
+              onUpdateAgenda={handleUpdateAgenda}
+              onAddActionItem={handleLiveAddAction}
+              onExitLiveMode={handleExitLiveMode}
+              onCompleteMeeting={handleCompleteMeeting}
+            />
           ) : (
             <div className="space-y-4">
               {/* 회의 기본 정보 */}
@@ -427,6 +526,15 @@ export default function Meetings() {
                         <option key={key} value={key}>{cfg.label}</option>
                       ))}
                     </select>
+                    {(selected.status === 'scheduled' || selected.status === 'in_progress') && (
+                      <button
+                        onClick={handleEnterLiveMode}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 text-white text-xs font-medium rounded-lg hover:bg-brand-600 transition-colors"
+                      >
+                        <Presentation size={14} />
+                        {selected.status === 'scheduled' ? '회의 시작' : '라이브 모드'}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteMeeting(selected.id)}
                       className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"

@@ -460,7 +460,7 @@ export default function Analytics() {
           totalViews: channelStats[ch.channel_id]?.totalViews || 0,
         }));
       // 인게이지먼트 데이터 포함
-      const videoData = enrichedVideos.slice(0, 12).map((v) => ({
+      const videoData = enrichedVideos.slice(0, 20).map((v) => ({
         title: v.title,
         views: v.views,
         likes: v.likes,
@@ -506,7 +506,7 @@ export default function Analytics() {
           subscribers: channelStats[ch.channel_id]?.subscribers || 0,
           totalViews: channelStats[ch.channel_id]?.totalViews || 0,
         }));
-      const videoData = filteredByDateVideos.slice(0, 12).map((v) => ({
+      const videoData = filteredByDateVideos.slice(0, 20).map((v) => ({
         title: v.title,
         views: v.views,
         likes: v.likes,
@@ -819,31 +819,50 @@ export default function Analytics() {
             return (
               <div key={ch.id} className="space-y-4">
                 {/* 채널 프로필 헤더 */}
-                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                  <div className="flex items-center gap-4 mb-5">
+                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                  {/* 채널 프로필 헤더 — 확대 */}
+                  <div className="flex items-center gap-5 mb-6">
                     {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return ch.thumbnail ? (
-                      <img src={ch.thumbnail} alt={ch.name} className={`w-16 h-16 rounded-full object-cover ring-2 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
+                      <img src={ch.thumbnail} alt={ch.name} className={`w-20 h-20 rounded-full object-cover ring-3 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
                     ) : (
-                      <div className={`w-16 h-16 rounded-full ${cfg.bgColor} flex items-center justify-center`}>
-                        <PIcon size={28} className={cfg.textColor} />
+                      <div className={`w-20 h-20 rounded-full ${cfg.bgColor} flex items-center justify-center`}>
+                        <PIcon size={32} className={cfg.textColor} />
                       </div>
                     ); })()}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-lg font-bold text-gray-900">{ch.name}</h2>
-                        {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return <PIcon size={16} className={cfg.textColor} />; })()}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-xl font-bold text-gray-900">{ch.name}</h2>
+                        {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return <PIcon size={18} className={cfg.textColor} />; })()}
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">우리 채널</span>
                       </div>
-                      {ch.handle && <p className="text-sm text-gray-400">{ch.handle}</p>}
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium mt-1 inline-block">우리 채널</span>
+                      {ch.handle && <p className="text-sm text-gray-400 mb-2">{ch.handle}</p>}
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1"><Users size={13} /> 구독자 <strong className="text-gray-900">{formatNumber(stats.subscribers || 0)}</strong></span>
+                        <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-gray-900">{formatNumber(stats.totalViews || 0)}</strong></span>
+                        <span className="flex items-center gap-1"><Video size={13} /> 영상 <strong className="text-gray-900">{formatNumber(stats.videoCount || 0)}</strong></span>
+                      </div>
                     </div>
                   </div>
-                  {/* 핵심 KPI 6칸 */}
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                  {/* 주요 KPI 3개 — 크게 */}
+                  <div className="grid grid-cols-3 gap-4 mb-3">
                     {[
                       { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
                       { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
-                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
                       { label: '인게이지먼트', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
+                    ].map((kpi) => (
+                      <div key={kpi.label} className="text-center p-4 rounded-xl border border-gray-100 bg-gray-50/30">
+                        <div className={`inline-flex p-2 rounded-lg ${kpi.bg} mb-2`}>
+                          <kpi.icon size={18} className={kpi.color} />
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{kpi.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 보조 KPI 3개 — 작게 */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
                       { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
                       { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
                     ].map((kpi) => (
@@ -1177,31 +1196,43 @@ export default function Analytics() {
                       { label: '30일', days: 30 },
                       { label: '90일', days: 90 },
                       { label: '전체', days: 0 },
-                    ].map((preset) => (
-                      <button
-                        key={preset.label}
-                        onClick={() => {
-                          if (preset.days === 0) {
-                            setDateRange({ start: '', end: '' });
-                          } else {
-                            const end = new Date();
-                            const start = new Date();
-                            start.setDate(start.getDate() - preset.days);
-                            setDateRange({
-                              start: start.toISOString().split('T')[0],
-                              end: end.toISOString().split('T')[0],
-                            });
-                          }
-                        }}
-                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                          (preset.days === 0 && !dateRange.start && !dateRange.end)
-                            ? 'bg-indigo-100 text-indigo-700 font-medium'
-                            : 'text-gray-500 hover:bg-gray-100'
-                        }`}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
+                    ].map((preset) => {
+                      // 현재 선택된 프리셋 감지
+                      const isActive = (() => {
+                        if (preset.days === 0) return !dateRange.start && !dateRange.end;
+                        if (!dateRange.start || !dateRange.end) return false;
+                        const s = new Date(dateRange.start);
+                        const e = new Date(dateRange.end);
+                        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24));
+                        const today = new Date().toISOString().split('T')[0];
+                        return diff === preset.days && dateRange.end === today;
+                      })();
+                      return (
+                        <button
+                          key={preset.label}
+                          onClick={() => {
+                            if (preset.days === 0) {
+                              setDateRange({ start: '', end: '' });
+                            } else {
+                              const end = new Date();
+                              const start = new Date();
+                              start.setDate(start.getDate() - preset.days);
+                              setDateRange({
+                                start: start.toISOString().split('T')[0],
+                                end: end.toISOString().split('T')[0],
+                              });
+                            }
+                          }}
+                          className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                            isActive
+                              ? 'bg-indigo-100 text-indigo-700 font-medium'
+                              : 'text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 {(dateRange.start || dateRange.end) && (

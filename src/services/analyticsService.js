@@ -131,7 +131,7 @@ export const analyticsService = {
     // 4. 초기 콘텐츠 데이터 가져오기
     let videos = [];
     try {
-      videos = await this.fetchChannelVideos(channel.id, 12, platform);
+      videos = await this.fetchChannelVideos(channel.id, 20, platform);
     } catch (e) {
       console.error('초기 콘텐츠 fetch 실패:', e);
     }
@@ -273,6 +273,7 @@ export const analyticsService = {
         likes: v.likes,
         comments: v.comments,
         published_at: v.publishedAt,
+        duration: v.duration || null,
       }));
       const { error } = await supabase
         .from('sns_videos')
@@ -288,7 +289,7 @@ export const analyticsService = {
       .from('sns_videos')
       .select('*')
       .order('published_at', { ascending: false })
-      .limit(50);
+      .limit(100);
     if (channelIds.length > 0) {
       query = query.in('channel_id', channelIds);
     }
@@ -384,7 +385,7 @@ export const analyticsService = {
         // stats와 videos를 독립적으로 fetch → 하나 실패해도 다른 것은 살림
         const [statsResult, videosResult] = await Promise.allSettled([
           this.fetchChannelStats(ch.channel_id, platform),
-          this.fetchChannelVideos(ch.channel_id, 12, platform),
+          this.fetchChannelVideos(ch.channel_id, 20, platform),
         ]);
         return {
           channelId: ch.channel_id,

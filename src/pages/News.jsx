@@ -308,7 +308,7 @@ export default function News() {
             ) : (
               <div className="relative">
                 <div
-                  className={`overflow-hidden transition-all duration-300 ${insightExpanded ? '' : 'max-h-[480px]'}`}
+                  className={`transition-all duration-300 ${insightExpanded ? 'overflow-y-auto max-h-[70vh]' : 'overflow-hidden max-h-[480px]'}`}
                   dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
                 />
                 {!insightExpanded && aiInsight && aiInsight.length > 800 && (
