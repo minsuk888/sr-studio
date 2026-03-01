@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Newspaper,
   Search,
@@ -109,6 +109,16 @@ export default function News() {
   const [showInsight, setShowInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
   const [insightExpanded, setInsightExpanded] = useState(false);
+  const insightRef = useRef(null);
+  const [insightOverflows, setInsightOverflows] = useState(false);
+
+  useEffect(() => {
+    if (insightRef.current && aiInsight) {
+      requestAnimationFrame(() => {
+        setInsightOverflows(insightRef.current.scrollHeight > 384);
+      });
+    }
+  }, [aiInsight, insightExpanded]);
 
   const addKeyword = useCallback(() => {
     const kw = newKeywordInput.trim();
@@ -308,13 +318,18 @@ export default function News() {
             ) : (
               <div className="relative">
                 <div
-                  className={`transition-all duration-300 ${insightExpanded ? '' : 'overflow-hidden max-h-[480px]'}`}
+                  ref={insightRef}
+                  className="transition-all duration-300"
+                  style={{
+                    overflow: insightExpanded ? 'visible' : 'hidden',
+                    maxHeight: insightExpanded ? 'none' : '384px',
+                  }}
                   dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
                 />
-                {!insightExpanded && aiInsight && aiInsight.length > 300 && (
+                {!insightExpanded && insightOverflows && (
                   <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
                 )}
-                {aiInsight && aiInsight.length > 300 && (
+                {insightOverflows && (
                   <div className="flex justify-center mt-2 pt-1">
                     <button
                       onClick={() => setInsightExpanded(!insightExpanded)}

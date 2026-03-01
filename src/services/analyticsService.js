@@ -120,6 +120,7 @@ export const analyticsService = {
         thumbnail: channel.thumbnail,
         handle: channel.handle,
         is_own: isOwn,
+        uploads_playlist_id: channel.uploadsPlaylistId || null,
       }, { onConflict: 'platform,channel_id' })
       .select()
       .single();
@@ -248,10 +249,24 @@ export const analyticsService = {
         body: JSON.stringify({ accountId: channelId, maxResults }),
       });
     } else {
+      // Try to get uploads_playlist_id from Supabase for quota optimization
+      let uploadsPlaylistId = null;
+      try {
+        const { data: chRow } = await supabase
+          .from('sns_channels')
+          .select('uploads_playlist_id')
+          .eq('channel_id', channelId)
+          .eq('platform', 'youtube')
+          .maybeSingle();
+        uploadsPlaylistId = chRow?.uploads_playlist_id || null;
+      } catch (e) {
+        console.error('uploads_playlist_id 조회 실패:', e);
+      }
+
       res = await fetch(`${API_BASE}/api/sns/youtube-videos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId, maxResults }),
+        body: JSON.stringify({ channelId, maxResults, uploadsPlaylistId }),
       });
     }
     if (!res.ok) {
@@ -274,6 +289,7 @@ export const analyticsService = {
         comments: v.comments,
         published_at: v.publishedAt,
         duration: v.duration || null,
+        tags: v.tags || null,
       }));
       const { error } = await supabase
         .from('sns_videos')
@@ -395,5 +411,63 @@ export const analyticsService = {
       })
     );
     return results;
+  },
+
+  // ============================================
+  // 댓글 수집 & AI 분석
+  // ============================================
+
+  // 댓글 수집
+  async fetchVideoComments(videoId, maxResults = 100) {
+    const res = await fetch(`${API_BASE}/api/sns/youtube-comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId, maxResults }),
+    });
+    if (!res.ok) throw new Error(`댓글 조회 실패: ${res.status}`);
+    return res.json();
+  },
+
+  // 댓글 AI 분석
+  async analyzeComments(comments, videoTitle) {
+    const res = await fetch(`${API_BASE}/api/sns/comment-analysis`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ comments, videoTitle }),
+    });
+    if (!res.ok) throw new Error(`댓글 분석 실패: ${res.status}`);
+    return res.json();
+  },
+
+  // 캐시된 댓글 조회
+  async getCachedComments(videoId) {
+    const { data, error } = await supabase
+      .from('sns_comments')
+      .select('*')
+      .eq('video_id', videoId)
+      .order('like_count', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  // 댓글 캐시 저장
+  async saveComments(videoId, channelId, comments, sentiments = []) {
+    const sentimentMap = {};
+    sentiments.forEach((s) => { sentimentMap[s.index] = s.sentiment; });
+
+    const rows = comments.map((c, i) => ({
+      video_id: videoId,
+      channel_id: channelId,
+      author: c.author,
+      text: c.text,
+      like_count: c.likeCount || 0,
+      published_at: c.publishedAt,
+      sentiment: sentimentMap[i + 1] || null,
+    }));
+
+    // Delete existing comments for this video first, then insert new ones
+    await supabase.from('sns_comments').delete().eq('video_id', videoId);
+    const { error } = await supabase.from('sns_comments').insert(rows);
+    if (error) throw error;
   },
 };

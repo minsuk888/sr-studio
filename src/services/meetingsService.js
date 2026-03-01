@@ -77,6 +77,41 @@ export const meetingsService = {
     if (error) throw error;
   },
 
+  async addSubAgenda(meetingId, parentId, agenda) {
+    // Get max sort_order for sub-items of this parent
+    const { data: existing } = await supabase
+      .from('meeting_agendas')
+      .select('sort_order')
+      .eq('meeting_id', meetingId)
+      .eq('parent_id', parentId)
+      .order('sort_order', { ascending: false })
+      .limit(1);
+
+    const nextOrder = (existing?.[0]?.sort_order ?? 0) + 1;
+
+    const { data, error } = await supabase
+      .from('meeting_agendas')
+      .insert({
+        meeting_id: meetingId,
+        parent_id: parentId,
+        title: agenda.title,
+        sort_order: nextOrder,
+        status: 'pending',
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async removeSubAgenda(agendaId) {
+    const { error } = await supabase
+      .from('meeting_agendas')
+      .delete()
+      .eq('id', agendaId);
+    if (error) throw error;
+  },
+
   async updateAgenda(agendaId, updates) {
     const { data, error } = await supabase
       .from('meeting_agendas')

@@ -12,10 +12,19 @@
   --color-brand-800: #991b1b;
   --color-brand-900: #7f1d1d;
 
+  /* Dark surface tokens */
+  --color-surface-700: #2a2a2a;
+  --color-surface-800: #1e1e1e;
+  --color-surface-850: #1a1a1a;
+  --color-surface-900: #111111;
+  --color-surface-950: #0a0a0a;
+
   --color-slate-750: #293548;
-  --color-sidebar: #0f172a;
-  --color-sidebar-hover: #1e293b;
-  --color-sidebar-active: #1e293b;
+
+  /* Sidebar — True Black */
+  --color-sidebar: #0a0a0a;
+  --color-sidebar-hover: #1a1a1a;
+  --color-sidebar-active: #1a1a1a;
 }
 
 @layer base {

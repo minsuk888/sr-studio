@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   LogOut,
   Clock,
@@ -34,8 +34,24 @@ export default function MeetingLiveView({
   const debounceRefs = useRef({});
   const actionInputRef = useRef(null);
 
-  // Sort agendas by sort_order
-  const sortedAgendas = [...agendas].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  // Build agenda tree (parent + children)
+  const agendaTree = useMemo(() => {
+    const sorted = [...agendas].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const topLevel = sorted.filter((a) => !a.parent_id);
+    return topLevel.map((parent) => ({
+      ...parent,
+      children: sorted.filter((a) => a.parent_id === parent.id),
+    }));
+  }, [agendas]);
+
+  const allItems = useMemo(() => {
+    const items = [];
+    agendaTree.forEach((parent) => {
+      items.push(parent);
+      parent.children.forEach((child) => items.push(child));
+    });
+    return items;
+  }, [agendaTree]);
 
   // ---- Initialize notes from agendas ----
   useEffect(() => {
@@ -58,8 +74,9 @@ export default function MeetingLiveView({
 
   // ---- Auto-set first agenda to discussing ----
   useEffect(() => {
-    if (sortedAgendas.length > 0 && sortedAgendas.every((a) => a.status === 'pending')) {
-      onUpdateAgenda(sortedAgendas[0].id, { status: 'discussing' });
+    const topLevel = agendaTree;
+    if (topLevel.length > 0 && topLevel.every((a) => a.status === 'pending')) {
+      onUpdateAgenda(topLevel[0].id, { status: 'discussing' });
     }
   }, []);
 
@@ -145,41 +162,115 @@ export default function MeetingLiveView({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onExitLiveMode]);
 
-  // ---- Status icon ----
+  // ---- Status helpers ----
   const renderStatusIcon = (status) => {
-    if (status === 'done') return <CheckCircle2 size={14} className="text-green-500" />;
-    if (status === 'discussing') return <AlertCircle size={14} className="text-amber-500" />;
+    if (status === 'done') return <CheckCircle2 size={14} className="text-emerald-500" />;
+    if (status === 'discussing') return <AlertCircle size={14} className="text-brand-400" />;
     return <Circle size={14} className="text-gray-300" />;
   };
 
-  const doneCount = sortedAgendas.filter((a) => a.status === 'done').length;
-  const progress = sortedAgendas.length > 0 ? (doneCount / sortedAgendas.length) * 100 : 0;
+  const doneCount = allItems.filter((a) => a.status === 'done').length;
+  const totalCount = allItems.length;
+  const progress = totalCount > 0 ? (doneCount / totalCount) * 100 : 0;
+
+  // ---- Render an agenda card (parent or child) ----
+  const renderAgendaCard = (agenda, idx, isChild = false) => {
+    const isDiscussing = agenda.status === 'discussing';
+    const isDone = agenda.status === 'done';
+
+    return (
+      <div
+        key={agenda.id}
+        className={`rounded-xl border-2 transition-all duration-300 ${isChild ? 'ml-6 lg:ml-8' : ''} ${
+          isDiscussing
+            ? 'border-brand-300 bg-brand-50/30 shadow-lg shadow-brand-100/50'
+            : isDone
+              ? 'border-emerald-200 bg-emerald-50/20 opacity-80'
+              : 'border-gray-200 bg-white hover:border-gray-300'
+        }`}
+      >
+        {/* Agenda Header */}
+        <div className="flex items-center justify-between px-4 lg:px-5 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className={`text-sm font-bold tabular-nums ${isDone ? 'text-emerald-400' : isDiscussing ? 'text-brand-400' : 'text-gray-300'}`}>
+              {idx}
+            </span>
+            <h3 className={`text-sm font-semibold tracking-tight ${isDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+              {agenda.title}
+            </h3>
+          </div>
+          <button
+            onClick={() => cycleAgendaStatus(agenda.id, agenda.status)}
+            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-200 cursor-pointer tracking-wide ${
+              isDone
+                ? 'bg-emerald-100 text-emerald-600 hover:bg-emerald-200'
+                : isDiscussing
+                  ? 'bg-brand-100 text-brand-600 hover:bg-brand-200'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {renderStatusIcon(agenda.status)}
+            {isDone ? '완료' : isDiscussing ? '논의 중' : '대기'}
+          </button>
+        </div>
+
+        {/* Agenda Notes */}
+        <div className="px-4 lg:px-5 pb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-medium text-gray-400 tracking-wide">메모</label>
+            {saveStatus[agenda.id] === 'saving' && (
+              <span className="text-[11px] text-gray-400 animate-pulse">저장 중...</span>
+            )}
+            {saveStatus[agenda.id] === 'saved' && (
+              <span className="text-[11px] text-emerald-500 font-medium">✓ 저장됨</span>
+            )}
+            {saveStatus[agenda.id] === 'error' && (
+              <span className="text-[11px] text-red-500">저장 실패</span>
+            )}
+          </div>
+          <textarea
+            value={agendaNotes[agenda.id] || ''}
+            onChange={(e) => handleNotesChange(agenda.id, e.target.value)}
+            placeholder={isChild ? "세부 안건 메모..." : "이 안건에 대한 메모를 작성하세요..."}
+            rows={isDiscussing ? 5 : isChild ? 2 : 3}
+            className={`w-full px-3 py-2.5 border rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-y transition-all duration-200 ${
+              isDiscussing ? 'bg-white border-brand-200' : isDone ? 'bg-gray-50 border-gray-200 text-gray-400' : 'bg-gray-50 border-gray-200'
+            }`}
+          />
+        </div>
+      </div>
+    );
+  };
 
   // ============================================
   // RENDER
   // ============================================
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col">
-      {/* ===== Header ===== */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white shrink-0">
+    <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col">
+      {/* ===== Header — Dark Theme ===== */}
+      <div className="flex items-center justify-between px-4 lg:px-6 py-3 bg-surface-950 shrink-0">
         {/* Left: Exit */}
         <button
           onClick={onExitLiveMode}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all cursor-pointer"
         >
           <LogOut size={16} className="rotate-180" />
-          <span className="font-medium">나가기</span>
+          <span className="font-medium hidden sm:inline">나가기</span>
         </button>
 
         {/* Center: Title + Timer */}
         <div className="flex items-center gap-3">
-          <h1 className="text-base font-bold text-gray-900 truncate max-w-[300px]">{meeting?.title || '회의'}</h1>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg">
-            <Clock size={14} className={isPaused ? 'text-yellow-500' : 'text-gray-500'} />
-            <span className="text-sm font-mono text-gray-700 tabular-nums">{formatTime(meetingElapsed)}</span>
+          <h1 className="text-sm lg:text-base font-bold text-white truncate max-w-[200px] lg:max-w-[300px] tracking-tight">
+            {meeting?.title || '회의'}
+          </h1>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-xl backdrop-blur-sm">
+            <Clock size={14} className={isPaused ? 'text-yellow-400' : 'text-brand-400'} />
+            <span className="text-lg font-mono font-bold text-white tabular-nums tracking-wider">
+              {formatTime(meetingElapsed)}
+            </span>
           </div>
           {isPaused && (
-            <span className="text-xs px-2 py-0.5 bg-yellow-50 text-yellow-600 rounded-full font-medium animate-pulse">
+            <span className="text-xs px-2.5 py-1 bg-yellow-500/20 text-yellow-400 rounded-full font-semibold animate-pulse tracking-wide">
               일시정지
             </span>
           )}
@@ -189,117 +280,64 @@ export default function MeetingLiveView({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsPaused(!isPaused)}
-            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-              isPaused ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-all cursor-pointer ${
+              isPaused
+                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                : 'bg-white/10 text-gray-300 hover:bg-white/20'
             }`}
           >
             {isPaused ? <Play size={15} /> : <Pause size={15} />}
-            {isPaused ? '재개' : '일시정지'}
+            <span className="hidden sm:inline">{isPaused ? '재개' : '일시정지'}</span>
           </button>
           <button
             onClick={onCompleteMeeting}
-            className="flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-4 lg:px-5 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white text-sm font-bold rounded-lg hover:from-brand-700 hover:to-brand-600 transition-all shadow-lg shadow-brand-600/30 cursor-pointer"
           >
             <Square size={14} />
-            회의 종료
+            <span className="hidden sm:inline">회의 종료</span>
           </button>
         </div>
       </div>
 
-      {/* ===== Body: 2-Panel ===== */}
-      <div className="flex flex-1 min-h-0">
+      {/* ===== Body: 2-Panel (stacks on mobile) ===== */}
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0">
         {/* --- Main Content: All Agendas --- */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
-          {sortedAgendas.map((agenda, idx) => {
-            const isDiscussing = agenda.status === 'discussing';
-            const isDone = agenda.status === 'done';
-            return (
-              <div
-                key={agenda.id}
-                className={`rounded-xl border-2 transition-all ${
-                  isDiscussing
-                    ? 'border-indigo-300 bg-indigo-50/30 shadow-sm'
-                    : isDone
-                      ? 'border-green-200 bg-green-50/20'
-                      : 'border-gray-200 bg-white'
-                }`}
-              >
-                {/* Agenda Header */}
-                <div className="flex items-center justify-between px-5 py-3">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`text-sm font-bold ${isDone ? 'text-green-400' : isDiscussing ? 'text-indigo-400' : 'text-gray-300'}`}>
-                      {idx + 1}
-                    </span>
-                    <h3 className={`text-sm font-semibold ${isDone ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
-                      {agenda.title}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => cycleAgendaStatus(agenda.id, agenda.status)}
-                    className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors cursor-pointer ${
-                      isDone
-                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
-                        : isDiscussing
-                          ? 'bg-amber-100 text-amber-600 hover:bg-amber-200'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
-                  >
-                    {renderStatusIcon(agenda.status)}
-                    {isDone ? '완료' : isDiscussing ? '논의 중' : '대기'}
-                  </button>
-                </div>
-
-                {/* Agenda Notes */}
-                <div className="px-5 pb-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-medium text-gray-400">메모</label>
-                    {saveStatus[agenda.id] === 'saving' && (
-                      <span className="text-[11px] text-gray-400 animate-pulse">저장 중...</span>
-                    )}
-                    {saveStatus[agenda.id] === 'saved' && (
-                      <span className="text-[11px] text-green-500 font-medium">✓ 저장됨</span>
-                    )}
-                    {saveStatus[agenda.id] === 'error' && (
-                      <span className="text-[11px] text-red-500">저장 실패</span>
-                    )}
-                  </div>
-                  <textarea
-                    value={agendaNotes[agenda.id] || ''}
-                    onChange={(e) => handleNotesChange(agenda.id, e.target.value)}
-                    placeholder="이 안건에 대한 메모를 작성하세요..."
-                    rows={isDiscussing ? 5 : 3}
-                    className={`w-full px-3 py-2.5 border rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y transition-colors ${
-                      isDiscussing ? 'bg-white border-indigo-200' : isDone ? 'bg-gray-50 border-gray-200 text-gray-500' : 'bg-gray-50 border-gray-200'
-                    }`}
-                  />
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-4">
+          {agendaTree.map((agenda, idx) => (
+            <div key={agenda.id}>
+              {renderAgendaCard(agenda, `${idx + 1}`, false)}
+              {agenda.children.map((child, childIdx) =>
+                renderAgendaCard(child, `${idx + 1}.${childIdx + 1}`, true)
+              )}
+            </div>
+          ))}
 
           {/* Progress summary */}
-          {sortedAgendas.length > 0 && (
-            <div className="flex items-center justify-center gap-3 py-4 text-sm text-gray-400">
-              <span>
-                진행률 {doneCount}/{sortedAgendas.length}
+          {totalCount > 0 && (
+            <div className="flex items-center justify-center gap-4 py-4">
+              <span className="text-sm font-medium text-gray-500">
+                진행률 {doneCount}/{totalCount}
               </span>
-              <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-40 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all duration-700 ease-out"
                   style={{ width: `${progress}%` }}
                 />
               </div>
+              <span className="text-sm font-bold text-gray-700 tabular-nums">
+                {Math.round(progress)}%
+              </span>
             </div>
           )}
         </div>
 
         {/* --- Right Panel: Action Items --- */}
-        <div className="w-72 border-l border-gray-200 bg-gray-50 flex flex-col shrink-0">
+        <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-gray-200 bg-white flex flex-col shrink-0 max-h-[40vh] lg:max-h-none">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 bg-white">
+          <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/80">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-800">액션 아이템</h3>
-              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              <h3 className="text-sm font-bold text-gray-800 tracking-tight">액션 아이템</h3>
+              <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded-full font-medium">
                 {actionItems.length}
               </span>
             </div>
@@ -318,10 +356,10 @@ export default function MeetingLiveView({
                 return (
                   <div
                     key={item.id}
-                    className="px-4 py-2.5 flex items-start gap-2 hover:bg-gray-100 transition-colors border-b border-gray-100 last:border-0"
+                    className="px-4 py-2.5 flex items-start gap-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
                   >
                     {isDone ? (
-                      <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
+                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0 mt-0.5" />
                     ) : (
                       <Circle size={16} className="text-gray-300 shrink-0 mt-0.5" />
                     )}
@@ -360,12 +398,12 @@ export default function MeetingLiveView({
                   }
                 }}
                 placeholder="액션 아이템 추가..."
-                className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
               />
               <button
                 onClick={handleAddQuickAction}
                 disabled={!quickActionTitle.trim()}
-                className="shrink-0 p-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="shrink-0 p-2 bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Plus size={16} />
               </button>

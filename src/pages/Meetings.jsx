@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   FileText,
   Plus,
@@ -17,6 +17,7 @@ import {
   Save,
   ArrowRight,
   Presentation,
+  ChevronDown,
 } from 'lucide-react';
 import { meetingsService } from '../services/meetingsService';
 import { useApp } from '../context/AppContext';
@@ -65,6 +66,10 @@ export default function Meetings() {
   const [newActionTitle, setNewActionTitle] = useState('');
   const [newActionAssignee, setNewActionAssignee] = useState('');
 
+  // 세부 안건
+  const [subAgendaParent, setSubAgendaParent] = useState(null);
+  const [newSubAgendaTitle, setNewSubAgendaTitle] = useState('');
+
   // 참석자 선택
   const [selectedAttendees, setSelectedAttendees] = useState([]);
 
@@ -94,6 +99,16 @@ export default function Meetings() {
     if (!selectedId) return null;
     return meetings.find((m) => m.id === selectedId) || null;
   }, [meetings, selectedId]);
+
+  // 안건 트리 구조
+  const agendaTree = useMemo(() => {
+    const agendas = (selected?.meeting_agendas || []).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    const topLevel = agendas.filter((a) => !a.parent_id);
+    return topLevel.map((parent) => ({
+      ...parent,
+      children: agendas.filter((a) => a.parent_id === parent.id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)),
+    }));
+  }, [selected]);
 
   // 회의 선택 시 상태 초기화
   useEffect(() => {
@@ -183,6 +198,25 @@ export default function Meetings() {
       );
     } catch (err) {
       alert('안건 삭제 실패: ' + err.message);
+    }
+  };
+
+  // 세부 안건 추가
+  const handleAddSubAgenda = async () => {
+    if (!newSubAgendaTitle.trim() || !subAgendaParent || !selected) return;
+    try {
+      const newSub = await meetingsService.addSubAgenda(selected.id, subAgendaParent, { title: newSubAgendaTitle.trim() });
+      setMeetings(prev =>
+        prev.map(m =>
+          m.id === selected.id
+            ? { ...m, meeting_agendas: [...(m.meeting_agendas || []), newSub] }
+            : m
+        )
+      );
+      setNewSubAgendaTitle('');
+      setSubAgendaParent(null);
+    } catch (err) {
+      console.error('세부 안건 추가 실패:', err);
     }
   };
 
@@ -428,9 +462,9 @@ export default function Meetings() {
       </div>
 
       {/* 메인 레이아웃: 목록 + 상세 */}
-      <div className="flex gap-4" style={{ minHeight: 'calc(100vh - 220px)' }}>
+      <div className="flex flex-col lg:flex-row gap-4" style={{ minHeight: 'calc(100vh - 220px)' }}>
         {/* 좌측: 회의 목록 */}
-        <div className="w-80 shrink-0 space-y-2">
+        <div className="w-full lg:w-80 shrink-0 space-y-2">
           {meetings.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm p-8 text-center">
               <FileText size={40} className="text-gray-300 mx-auto mb-3" />
@@ -573,25 +607,74 @@ export default function Meetings() {
               {/* 안건 */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-                  <ListOrdered size={15} className="text-indigo-500" />
+                  <ListOrdered size={15} className="text-brand-500" />
                   안건
                 </h3>
-                <div className="space-y-1.5 mb-3">
-                  {(selected.meeting_agendas || [])
-                    .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((agenda, idx) => (
-                      <div key={agenda.id} className="flex items-center gap-2 group">
-                        <span className="text-xs font-medium text-gray-400 w-5">{idx + 1}.</span>
-                        <span className="text-sm text-gray-700 flex-1">{agenda.title}</span>
+                <div className="space-y-1 mb-3">
+                  {agendaTree.map((agenda, idx) => (
+                    <div key={agenda.id}>
+                      {/* Parent agenda */}
+                      <div className="flex items-center gap-2 group">
+                        <span className="text-xs font-bold text-gray-400 w-5">{idx + 1}.</span>
+                        <span className="text-sm text-gray-700 flex-1 font-medium">{agenda.title}</span>
+                        <button
+                          onClick={() => setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-brand-50 text-gray-300 hover:text-brand-500 transition-all cursor-pointer"
+                          title="세부 안건 추가"
+                        >
+                          <Plus size={12} />
+                        </button>
                         <button
                           onClick={() => handleRemoveAgenda(agenda.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all"
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
                         >
                           <X size={12} />
                         </button>
                       </div>
-                    ))}
+                      {/* Sub-items */}
+                      {agenda.children.map((sub, subIdx) => (
+                        <div key={sub.id} className="flex items-center gap-2 group ml-7 mt-0.5">
+                          <span className="text-[11px] text-gray-300 w-8">{idx + 1}.{subIdx + 1}</span>
+                          <span className="text-xs text-gray-500 flex-1">{sub.title}</span>
+                          <button
+                            onClick={() => handleRemoveAgenda(sub.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 text-gray-200 hover:text-red-500 transition-all cursor-pointer"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                      {/* Sub-agenda input */}
+                      {subAgendaParent === agenda.id && (
+                        <div className="flex items-center gap-2 ml-7 mt-1.5">
+                          <input
+                            type="text"
+                            value={newSubAgendaTitle}
+                            onChange={(e) => setNewSubAgendaTitle(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddSubAgenda()}
+                            placeholder="세부 안건..."
+                            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            autoFocus
+                          />
+                          <button
+                            onClick={handleAddSubAgenda}
+                            disabled={!newSubAgendaTitle.trim()}
+                            className="px-2 py-1.5 bg-brand-500 text-white text-xs rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 cursor-pointer"
+                          >
+                            추가
+                          </button>
+                          <button
+                            onClick={() => { setSubAgendaParent(null); setNewSubAgendaTitle(''); }}
+                            className="p-1 text-gray-300 hover:text-gray-500 cursor-pointer"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+                {/* Add top-level agenda */}
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -599,12 +682,12 @@ export default function Meetings() {
                     onChange={(e) => setNewAgendaTitle(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAgenda()}
                     placeholder="안건 추가..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                   <button
                     onClick={handleAddAgenda}
                     disabled={!newAgendaTitle.trim()}
-                    className="px-3 py-2 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50"
+                    className="px-3 py-2 bg-brand-500 text-white text-sm rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <Plus size={15} />
                   </button>
@@ -637,7 +720,7 @@ export default function Meetings() {
               </div>
 
               {/* AI 요약 */}
-              <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100">
+              <div className="bg-gradient-to-br from-brand-50 via-white to-purple-50 rounded-xl shadow-sm border border-brand-100">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-purple-500" />
@@ -646,14 +729,14 @@ export default function Meetings() {
                   <button
                     onClick={handleAiSummary}
                     disabled={aiLoading || (!minutesContent && (selected.meeting_agendas || []).length === 0)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-medium rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-brand-500 text-white text-xs font-medium rounded-lg hover:from-purple-600 hover:to-brand-600 transition-all disabled:opacity-50 shadow-sm"
                   >
                     <Sparkles size={13} className={aiLoading ? 'animate-spin' : ''} />
                     {aiLoading ? '요약 중...' : aiSummary ? '다시 요약' : 'AI 요약 생성'}
                   </button>
                 </div>
                 {aiLoading && (
-                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-indigo-600">
+                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-brand-600">
                     <Loader className="w-5 h-5 animate-spin" />
                     회의록을 분석하고 있습니다...
                   </div>

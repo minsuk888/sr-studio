@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AreaChart,
   Area,
@@ -163,6 +163,11 @@ export default function Analytics() {
   // ---- 콘텐츠 탭 인라인 AI ----
   const [contentAiInsight, setContentAiInsight] = useState('');
   const [isContentAiLoading, setIsContentAiLoading] = useState(false);
+
+  // ---- 댓글 분석 ----
+  const [commentAnalysis, setCommentAnalysis] = useState(null);
+  const [isAnalyzingComments, setIsAnalyzingComments] = useState(false);
+  const [selectedVideoForComments, setSelectedVideoForComments] = useState(null);
 
   // ---- 채널 관리 모달 ----
   const [showChannelModal, setShowChannelModal] = useState(false);
@@ -544,6 +549,33 @@ export default function Analytics() {
     }
   };
 
+  // ---- 댓글 분석 핸들러 ----
+  const handleCommentAnalysis = useCallback(async (video) => {
+    setSelectedVideoForComments(video);
+    setIsAnalyzingComments(true);
+    try {
+      const { comments, disabled } = await analyticsService.fetchVideoComments(video.videoId || video.video_id);
+      if (disabled) {
+        setCommentAnalysis({ disabled: true });
+        return;
+      }
+      if (comments.length === 0) {
+        setCommentAnalysis({ empty: true });
+        return;
+      }
+      const result = await analyticsService.analyzeComments(comments, video.title);
+      // Save to cache
+      const channelId = video.channel_id || video.channelId;
+      await analyticsService.saveComments(video.videoId || video.video_id, channelId, comments, result.sentiments);
+      setCommentAnalysis(result);
+    } catch (err) {
+      console.error('댓글 분석 실패:', err);
+      setCommentAnalysis({ error: err.message });
+    } finally {
+      setIsAnalyzingComments(false);
+    }
+  }, []);
+
   // ---- 모니터링 키워드 추가/삭제 ----
   const handleAddKeyword = async () => {
     const kw = newKeywordInput.trim();
@@ -669,6 +701,28 @@ export default function Analytics() {
       totalComments,
     };
   }, [filteredByChannelVideos, ownChannels, channelStats]);
+
+  // ---- 태그 분석 ----
+  const tagAnalysis = useMemo(() => {
+    const tagMap = {};
+    filteredByChannelVideos.forEach((v) => {
+      (v.tags || []).forEach((tag) => {
+        if (!tagMap[tag]) tagMap[tag] = { count: 0, totalEngagement: 0, totalViews: 0 };
+        tagMap[tag].count++;
+        tagMap[tag].totalEngagement += calcEngagementRate(v);
+        tagMap[tag].totalViews += v.views || 0;
+      });
+    });
+    return Object.entries(tagMap)
+      .map(([tag, data]) => ({
+        tag,
+        count: data.count,
+        avgEngagement: data.count > 0 ? data.totalEngagement / data.count : 0,
+        totalViews: data.totalViews,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 20);
+  }, [filteredByChannelVideos]);
 
   // ---- 경쟁사 벤치마킹 레이더 데이터 ----
   const radarChartData = useMemo(() => {
@@ -1433,6 +1487,102 @@ export default function Analytics() {
                   </div>
                 )}
               </div>
+
+              {/* 태그 분석 */}
+              {tagAnalysis.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                    <Tag size={15} className="text-brand-500" />
+                    태그 분석
+                    <span className="text-xs text-gray-400 font-normal">상위 {tagAnalysis.length}개</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {tagAnalysis.map((t) => (
+                      <div key={t.tag} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-600 w-32 truncate font-medium">#{t.tag}</span>
+                        <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-brand-400 rounded-full transition-all"
+                            style={{ width: `${(t.count / (tagAnalysis[0]?.count || 1)) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-500 w-8 text-right">{t.count}회</span>
+                        <span className="text-xs text-gray-400 w-20 text-right">
+                          인게이지먼트 {t.avgEngagement.toFixed(1)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 댓글 분석 (자사 채널 전용) */}
+              {channels.some(ch => ch.is_own && (selectedChannelFilter === 'all' || selectedChannelFilter === ch.channel_id)) && (
+                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                    <MessageCircle size={15} className="text-brand-500" />
+                    댓글 분석
+                    <span className="text-xs text-gray-400 font-normal">(자사 채널 전용)</span>
+                  </h3>
+
+                  {/* Video selector for comment analysis */}
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500 mb-2">분석할 영상을 선택하세요:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {filteredByChannelVideos
+                        .filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId))))
+                        .slice(0, 6)
+                        .map((v) => (
+                          <button
+                            key={v.videoId || v.video_id}
+                            onClick={() => handleCommentAnalysis(v)}
+                            disabled={isAnalyzingComments}
+                            className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
+                              selectedVideoForComments?.videoId === v.videoId || selectedVideoForComments?.video_id === v.video_id
+                                ? 'bg-brand-50 border-brand-300 text-brand-700'
+                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                            } disabled:opacity-50`}
+                          >
+                            {v.title?.slice(0, 30)}{v.title?.length > 30 ? '...' : ''}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Analysis results */}
+                  {isAnalyzingComments && (
+                    <div className="flex items-center justify-center py-8 gap-3">
+                      <Loader className="w-5 h-5 animate-spin text-brand-500" />
+                      <span className="text-sm text-gray-500">댓글을 분석하고 있습니다...</span>
+                    </div>
+                  )}
+
+                  {commentAnalysis && !isAnalyzingComments && (
+                    <div>
+                      {commentAnalysis.disabled && (
+                        <p className="text-sm text-gray-400 text-center py-4">이 영상은 댓글이 비활성화되어 있습니다.</p>
+                      )}
+                      {commentAnalysis.empty && (
+                        <p className="text-sm text-gray-400 text-center py-4">댓글이 없습니다.</p>
+                      )}
+                      {commentAnalysis.error && (
+                        <p className="text-sm text-red-500 text-center py-4">{commentAnalysis.error}</p>
+                      )}
+                      {commentAnalysis.analysis && (
+                        <div className="prose prose-sm max-w-none">
+                          <div
+                            className="text-sm text-gray-600 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-700"
+                            dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
+                          />
+                          <p className="text-xs text-gray-400 mt-3">
+                            {commentAnalysis.analyzedCount}개 댓글 분석 · {commentAnalysis.generatedAt ? new Date(commentAnalysis.generatedAt).toLocaleString('ko-KR') : ''}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 게시 시간대 히트맵 */}
               {filteredByChannelVideos.length >= 3 && (

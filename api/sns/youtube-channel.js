@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     // channelId가 @handle 형식인 경우 forHandle 파라미터 사용
     const isHandle = channelId.startsWith('@');
     const params = new URLSearchParams({
-      part: 'snippet,statistics',
+      part: 'snippet,statistics,contentDetails',
       key: apiKey,
     });
     if (isHandle) {
@@ -58,6 +58,7 @@ export default async function handler(req, res) {
       totalViews: Number(item.statistics.viewCount) || 0,
       videoCount: Number(item.statistics.videoCount) || 0,
       hiddenSubscribers: item.statistics.hiddenSubscriberCount || false,
+      uploadsPlaylistId: item.contentDetails?.relatedPlaylists?.uploads || null,
     };
 
     return res.status(200).json({ channel });
