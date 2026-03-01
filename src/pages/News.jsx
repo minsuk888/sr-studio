@@ -308,13 +308,13 @@ export default function News() {
             ) : (
               <div className="relative">
                 <div
-                  className={`transition-all duration-300 ${insightExpanded ? 'overflow-y-auto max-h-[70vh]' : 'overflow-hidden max-h-[480px]'}`}
+                  className={`transition-all duration-300 ${insightExpanded ? '' : 'overflow-hidden max-h-[480px]'}`}
                   dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
                 />
-                {!insightExpanded && aiInsight && aiInsight.length > 800 && (
+                {!insightExpanded && aiInsight && aiInsight.length > 300 && (
                   <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none" />
                 )}
-                {aiInsight && aiInsight.length > 800 && (
+                {aiInsight && aiInsight.length > 300 && (
                   <div className="flex justify-center mt-2 pt-1">
                     <button
                       onClick={() => setInsightExpanded(!insightExpanded)}
