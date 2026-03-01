@@ -23,6 +23,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { analyticsService } from '../services/analyticsService';
 import { newsService } from '../services/newsService';
+import { aiService } from '../services/aiService';
+import AiInsightCard from '../components/AiInsightCard';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -146,6 +148,10 @@ export default function Dashboard() {
   const [newsArticles, setNewsArticles] = useState([]);
   const [extraLoading, setExtraLoading] = useState(true);
 
+  // AI 인사이트
+  const [dashboardAi, setDashboardAi] = useState('');
+  const [dashboardAiLoading, setDashboardAiLoading] = useState(false);
+
   useEffect(() => {
     Promise.all([
       analyticsService.getOverview(),
@@ -212,6 +218,20 @@ export default function Dashboard() {
     [newsArticles],
   );
 
+  const handleDashboardAi = async () => {
+    setDashboardAiLoading(true);
+    try {
+      const overdue = tasks.filter((t) => t.status !== 'done' && t.deadline && new Date(t.deadline) < new Date()).length;
+      const context = `업무 현황: 전체 ${stats.total}건 (예정 ${stats.todo}, 진행 ${stats.inProgress}, 완료 ${stats.done}), 완료율 ${stats.completionRate}%, 마감 초과 ${overdue}건. 팀원 ${members.length}명. SNS 채널: ${snsOverview.map((s) => `${s.platform} 구독자 ${s.subscribers}`).join(', ')}.`;
+      const data = await aiService.analyze('dashboard', context, '현재 팀 상황을 분석하고, 이번 주 가장 중요한 3가지 우선순위와 리스크를 알려주세요. 마감 초과 업무가 있다면 강조해주세요.');
+      setDashboardAi(data.insight || '');
+    } catch (err) {
+      setDashboardAi('AI 분석 실패: ' + err.message);
+    } finally {
+      setDashboardAiLoading(false);
+    }
+  };
+
   if (loading || extraLoading) {
     return (
       <div className="flex items-center justify-center h-64 text-slate-400">
@@ -272,6 +292,14 @@ export default function Dashboard() {
           sub="YouTube + Instagram + TikTok 합산"
         />
       </div>
+
+      {/* AI 인사이트 */}
+      <AiInsightCard
+        title="AI 업무 현황 분석"
+        insight={dashboardAi}
+        loading={dashboardAiLoading}
+        onGenerate={handleDashboardAi}
+      />
 
       {/* BOTTOM GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

@@ -39,6 +39,8 @@ import {
   ArrowUpDown,
   Activity,
   Clock,
+  CalendarRange,
+  Filter,
 } from 'lucide-react';
 import { analyticsService } from '../services/analyticsService';
 import {
@@ -158,6 +160,10 @@ export default function Analytics() {
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
 
+  // ---- 콘텐츠 탭 인라인 AI ----
+  const [contentAiInsight, setContentAiInsight] = useState('');
+  const [isContentAiLoading, setIsContentAiLoading] = useState(false);
+
   // ---- 채널 관리 모달 ----
   const [showChannelModal, setShowChannelModal] = useState(false);
   const [newChannelInput, setNewChannelInput] = useState('');
@@ -165,8 +171,9 @@ export default function Analytics() {
   const [newChannelIsOwn, setNewChannelIsOwn] = useState(true);
   const [addingChannel, setAddingChannel] = useState(false);
 
-  // ---- 콘텐츠 분석 정렬 ----
+  // ---- 콘텐츠 분석 정렬 + 기간 필터 ----
   const [videoSortBy, setVideoSortBy] = useState('date');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
   // ---- UI ----
   const [loaded, setLoaded] = useState(false);
@@ -188,9 +195,21 @@ export default function Analytics() {
     [recentVideos],
   );
 
+  // 기간 필터 적용 영상
+  const filteredByDateVideos = useMemo(() => {
+    if (!dateRange.start && !dateRange.end) return enrichedVideos;
+    return enrichedVideos.filter((v) => {
+      const pubDate = new Date(v.published_at || v.publishedAt);
+      if (isNaN(pubDate.getTime())) return false;
+      if (dateRange.start && pubDate < new Date(dateRange.start)) return false;
+      if (dateRange.end && pubDate > new Date(dateRange.end + 'T23:59:59')) return false;
+      return true;
+    });
+  }, [enrichedVideos, dateRange]);
+
   // 정렬된 영상
   const sortedVideos = useMemo(() => {
-    const sorted = [...enrichedVideos];
+    const sorted = [...filteredByDateVideos];
     switch (videoSortBy) {
       case 'views':
         sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
@@ -208,12 +227,12 @@ export default function Analytics() {
         );
     }
     return sorted;
-  }, [enrichedVideos, videoSortBy]);
+  }, [filteredByDateVideos, videoSortBy]);
 
   // Top 3 퍼포머
   const topPerformers = useMemo(
-    () => [...enrichedVideos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 3),
-    [enrichedVideos],
+    () => [...filteredByDateVideos].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 3),
+    [filteredByDateVideos],
   );
 
   // KPI 집계
@@ -463,6 +482,49 @@ export default function Analytics() {
     }
   };
 
+  // ---- 콘텐츠 AI 분석 (인라인) ----
+  const handleContentAiAnalysis = async () => {
+    if (filteredByDateVideos.length === 0) {
+      alert('분석할 콘텐츠가 없습니다.');
+      return;
+    }
+    setIsContentAiLoading(true);
+    setContentAiInsight('');
+    try {
+      const ownCh = channels.filter((c) => c.is_own);
+      const channelData = ownCh.map((ch) => ({
+        platform: ch.platform,
+        name: ch.name,
+        subscribers: channelStats[ch.channel_id]?.subscribers || 0,
+        totalViews: channelStats[ch.channel_id]?.totalViews || 0,
+        videoCount: channelStats[ch.channel_id]?.videoCount || 0,
+      }));
+      const competitorData = channels
+        .filter((c) => !c.is_own)
+        .map((ch) => ({
+          name: ch.name,
+          subscribers: channelStats[ch.channel_id]?.subscribers || 0,
+          totalViews: channelStats[ch.channel_id]?.totalViews || 0,
+        }));
+      const videoData = filteredByDateVideos.slice(0, 12).map((v) => ({
+        title: v.title,
+        views: v.views,
+        likes: v.likes,
+        comments: v.comments,
+        engagementRate: v.engagementRate?.toFixed(2),
+        likeRatio: v.likeRatio?.toFixed(2),
+        publishedAt: v.publishedAt || v.published_at,
+        duration: v.duration,
+      }));
+      const data = await analyticsService.generateSnsInsights(channelData, videoData, competitorData);
+      setContentAiInsight(data.insight || '인사이트를 생성하지 못했습니다.');
+    } catch (err) {
+      setContentAiInsight('AI 분석 실패: ' + err.message);
+    } finally {
+      setIsContentAiLoading(false);
+    }
+  };
+
   // ---- 모니터링 키워드 추가/삭제 ----
   const handleAddKeyword = async () => {
     const kw = newKeywordInput.trim();
@@ -535,7 +597,7 @@ export default function Analytics() {
     const grid = Array.from({ length: 7 }, () =>
       Array.from({ length: 24 }, () => ({ count: 0, totalViews: 0, totalEngagement: 0 })),
     );
-    enrichedVideos.forEach((v) => {
+    filteredByDateVideos.forEach((v) => {
       const dt = new Date(v.published_at || v.publishedAt);
       if (isNaN(dt.getTime())) return;
       const day = (dt.getDay() + 6) % 7; // Mon=0 ... Sun=6
@@ -554,7 +616,40 @@ export default function Analytics() {
       }),
     );
     return { grid: processed, maxAvgViews };
-  }, [enrichedVideos]);
+  }, [filteredByDateVideos]);
+
+  // ---- 콘텐츠 탭 KPI 집계 ----
+  const contentKpi = useMemo(() => {
+    const vids = filteredByDateVideos;
+    if (vids.length === 0) return null;
+    const totalViews = vids.reduce((s, v) => s + (v.views || 0), 0);
+    const totalLikes = vids.reduce((s, v) => s + (v.likes || 0), 0);
+    const totalComments = vids.reduce((s, v) => s + (v.comments || 0), 0);
+    const avgEngagement = vids.reduce((s, v) => s + v.engagementRate, 0) / vids.length;
+    const avgLikeRatio = vids.reduce((s, v) => s + v.likeRatio, 0) / vids.length;
+    // 조회/구독 비율
+    const totalSubs = ownChannels.reduce((s, ch) => s + (channelStats[ch.channel_id]?.subscribers || 0), 0);
+    const avgViews = Math.round(totalViews / vids.length);
+    const viewSubRatio = totalSubs > 0 ? (avgViews / totalSubs * 100).toFixed(1) : '0';
+    // 주간 게시 빈도
+    const dates = vids.map((v) => new Date(v.published_at || v.publishedAt)).filter((d) => !isNaN(d.getTime()));
+    let weeklyFreq = 0;
+    if (dates.length >= 2) {
+      const sorted = dates.sort((a, b) => a - b);
+      const daySpan = Math.max((sorted[sorted.length - 1] - sorted[0]) / (1000 * 60 * 60 * 24), 1);
+      weeklyFreq = (vids.length / (daySpan / 7)).toFixed(1);
+    }
+    return {
+      avgEngagement: avgEngagement.toFixed(2),
+      avgLikeRatio: avgLikeRatio.toFixed(2),
+      viewSubRatio,
+      weeklyFreq,
+      videoCount: vids.length,
+      avgViews,
+      totalLikes,
+      totalComments,
+    };
+  }, [filteredByDateVideos, ownChannels, channelStats]);
 
   // ---- 경쟁사 벤치마킹 레이더 데이터 ----
   const radarChartData = useMemo(() => {
@@ -1048,39 +1143,109 @@ export default function Analytics() {
             </div>
           ) : (
             <>
-              {/* 성과 요약 바 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {topPerformers[0] && (
-                  <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm p-4 border border-yellow-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Trophy size={16} className="text-yellow-500" />
-                      <span className="text-xs font-medium text-yellow-700">최고 인게이지먼트</span>
-                    </div>
-                    <p className="text-sm font-semibold text-gray-800 line-clamp-1">{topPerformers[0].title}</p>
-                    <p className="text-lg font-bold text-yellow-600 mt-1">{topPerformers[0].engagementRate.toFixed(2)}%</p>
-                  </div>
-                )}
-                <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Eye size={16} className="text-blue-500" />
-                    <span className="text-xs font-medium text-gray-500">평균 조회수</span>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900">
-                    {formatNumber(
-                      enrichedVideos.length > 0
-                        ? Math.round(enrichedVideos.reduce((s, v) => s + (v.views || 0), 0) / enrichedVideos.length)
-                        : 0,
+              {/* 기간 필터 */}
+              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CalendarRange size={15} className="text-gray-400" />
+                    <span className="text-xs font-medium text-gray-500">기간 설정</span>
+                    <input
+                      type="date"
+                      value={dateRange.start}
+                      onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <span className="text-xs text-gray-400">~</span>
+                    <input
+                      type="date"
+                      value={dateRange.end}
+                      onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    {(dateRange.start || dateRange.end) && (
+                      <button
+                        onClick={() => setDateRange({ start: '', end: '' })}
+                        className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
                     )}
-                  </p>
-                </div>
-                <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Video size={16} className="text-purple-500" />
-                    <span className="text-xs font-medium text-gray-500">분석 영상</span>
                   </div>
-                  <p className="text-lg font-bold text-gray-900">{enrichedVideos.length}개</p>
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { label: '7일', days: 7 },
+                      { label: '30일', days: 30 },
+                      { label: '90일', days: 90 },
+                      { label: '전체', days: 0 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.label}
+                        onClick={() => {
+                          if (preset.days === 0) {
+                            setDateRange({ start: '', end: '' });
+                          } else {
+                            const end = new Date();
+                            const start = new Date();
+                            start.setDate(start.getDate() - preset.days);
+                            setDateRange({
+                              start: start.toISOString().split('T')[0],
+                              end: end.toISOString().split('T')[0],
+                            });
+                          }
+                        }}
+                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                          (preset.days === 0 && !dateRange.start && !dateRange.end)
+                            ? 'bg-indigo-100 text-indigo-700 font-medium'
+                            : 'text-gray-500 hover:bg-gray-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                {(dateRange.start || dateRange.end) && (
+                  <p className="text-[11px] text-gray-400 mt-2 flex items-center gap-1">
+                    <Filter size={11} />
+                    필터 적용: {filteredByDateVideos.length}개 / 전체 {enrichedVideos.length}개 콘텐츠
+                  </p>
+                )}
               </div>
+
+              {/* 성과 요약 바 */}
+              {contentKpi && (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {[
+                    { label: '분석 콘텐츠', value: `${contentKpi.videoCount}개`, icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
+                    { label: '평균 조회수', value: formatNumber(contentKpi.avgViews), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
+                    { label: '인게이지먼트', value: `${contentKpi.avgEngagement}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
+                    { label: '평균 좋아요율', value: `${contentKpi.avgLikeRatio}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
+                    { label: '조회/구독 비율', value: `${contentKpi.viewSubRatio}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
+                    { label: '주간 게시 빈도', value: `${contentKpi.weeklyFreq}개/주`, icon: CalendarRange, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+                    { label: '총 좋아요', value: formatNumber(contentKpi.totalLikes), icon: ThumbsUp, color: 'text-red-500', bg: 'bg-red-50' },
+                  ].map((kpi) => (
+                    <div key={kpi.label} className="bg-white rounded-xl shadow-sm p-3 border border-gray-100 text-center">
+                      <div className={`inline-flex p-1.5 rounded-lg ${kpi.bg} mb-1.5`}>
+                        <kpi.icon size={13} className={kpi.color} />
+                      </div>
+                      <p className="text-base font-bold text-gray-900">{kpi.value}</p>
+                      <p className="text-[10px] text-gray-400">{kpi.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Top 퍼포머 + 최고 인게이지먼트 */}
+              {topPerformers[0] && (
+                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm p-4 border border-yellow-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Trophy size={16} className="text-yellow-500" />
+                    <span className="text-xs font-medium text-yellow-700">최고 인게이지먼트</span>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 line-clamp-1">{topPerformers[0].title}</p>
+                  <p className="text-lg font-bold text-yellow-600 mt-1">{topPerformers[0].engagementRate.toFixed(2)}%</p>
+                </div>
+              )}
 
               {/* Top 3 퍼포머 */}
               {topPerformers.length > 0 && (
@@ -1131,8 +1296,45 @@ export default function Analytics() {
                 </div>
               )}
 
+              {/* AI 콘텐츠 분석 (인라인) */}
+              <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100">
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-purple-500" />
+                    <span className="text-sm font-semibold text-gray-700">AI 콘텐츠 분석</span>
+                    {contentKpi && (
+                      <span className="text-[11px] text-gray-400">
+                        ({contentKpi.videoCount}개 콘텐츠 기준)
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleContentAiAnalysis}
+                    disabled={isContentAiLoading || filteredByDateVideos.length === 0}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-medium rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all disabled:opacity-50 shadow-sm"
+                  >
+                    <Sparkles size={13} className={isContentAiLoading ? 'animate-spin' : ''} />
+                    {isContentAiLoading ? '분석 중...' : contentAiInsight ? '다시 분석' : 'AI 분석 시작'}
+                  </button>
+                </div>
+                {isContentAiLoading && (
+                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-indigo-600">
+                    <Loader className="w-5 h-5 animate-spin" />
+                    콘텐츠 인게이지먼트를 분석하고 방향성을 제시하고 있습니다...
+                  </div>
+                )}
+                {!isContentAiLoading && contentAiInsight && (
+                  <div className="px-4 pb-4">
+                    <div
+                      className="prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: renderInsightText(contentAiInsight) }}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* 게시 시간대 히트맵 */}
-              {enrichedVideos.length >= 3 && (
+              {filteredByDateVideos.length >= 3 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                   <h2 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
                     <Clock size={15} className="text-orange-500" />

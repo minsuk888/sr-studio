@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { aiService } from '../services/aiService';
+import AiInsightCard from '../components/AiInsightCard';
 import {
   Plus,
   Kanban,
@@ -56,6 +58,28 @@ export default function Tasks() {
 
   // ---- delete confirmation state ----
   const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'task'|'member', id, name }
+
+  // ---- AI insight state ----
+  const [tasksAi, setTasksAi] = useState(null);
+  const [tasksAiLoading, setTasksAiLoading] = useState(false);
+
+  const handleTasksAi = async () => {
+    setTasksAiLoading(true);
+    try {
+      const byStatus = { todo: 0, 'in-progress': 0, done: 0 };
+      const byPriority = { high: 0, medium: 0, low: 0 };
+      tasks.forEach((t) => { byStatus[t.status] = (byStatus[t.status] || 0) + 1; byPriority[t.priority] = (byPriority[t.priority] || 0) + 1; });
+      const overdue = tasks.filter((t) => t.deadline && t.status !== 'done' && t.deadline < new Date().toISOString().split('T')[0]).length;
+      const memberLoad = members.map((m) => {
+        const mt = tasks.filter((t) => t.assignee === m.id);
+        return `${m.name}(${m.role}): 전체 ${mt.length}건, 진행중 ${mt.filter((t) => t.status === 'in-progress').length}건, 완료 ${mt.filter((t) => t.status === 'done').length}건`;
+      }).join('\n');
+      const context = `전체 업무 ${tasks.length}건\n상태별: 할 일 ${byStatus.todo}, 진행중 ${byStatus['in-progress']}, 완료 ${byStatus.done}\n우선순위별: 높음 ${byPriority.high}, 보통 ${byPriority.medium}, 낮음 ${byPriority.low}\n마감 초과: ${overdue}건\n\n팀원별 업무:\n${memberLoad}`;
+      const res = await aiService.analyze('tasks', context, '현재 업무 현황을 분석하고 워크로드 균형, 우선순위 조정, 병목 구간을 파악해주세요.');
+      setTasksAi(res.insight);
+    } catch { /* ignore */ }
+    setTasksAiLoading(false);
+  };
 
   // ---------- helpers ----------
   const getMember = (id) => members.find((m) => m.id === id);
@@ -415,6 +439,16 @@ export default function Tasks() {
           </div>
         </div>
       )}
+
+      {/* AI 인사이트 */}
+      <div className="mb-4">
+        <AiInsightCard
+          title="AI 업무 분석"
+          insight={tasksAi}
+          loading={tasksAiLoading}
+          onGenerate={handleTasksAi}
+        />
+      </div>
 
       {/* board / list */}
       {viewMode === 'kanban' ? (

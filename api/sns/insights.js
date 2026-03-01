@@ -25,10 +25,18 @@ export default async function handler(req, res) {
       `${i + 1}. [${ch.platform || 'youtube'}] ${ch.name} — 구독자: ${(ch.subscribers || 0).toLocaleString()}, 총 조회수: ${(ch.totalViews || 0).toLocaleString()}, 영상 수: ${ch.videoCount || 0}`
     ).join('\n');
 
-    // 최근 영상 요약
+    // 최근 영상 요약 (인게이지먼트 데이터 포함)
     const videoSummary = videos.slice(0, 12).map((v, i) =>
-      `${i + 1}. "${v.title}" — 조회수: ${(v.views || 0).toLocaleString()}, 좋아요: ${(v.likes || 0).toLocaleString()}, 댓글: ${(v.comments || 0).toLocaleString()}, 게시일: ${v.publishedAt?.split('T')[0] || ''}`
+      `${i + 1}. "${v.title}" — 조회수: ${(v.views || 0).toLocaleString()}, 좋아요: ${(v.likes || 0).toLocaleString()}, 댓글: ${(v.comments || 0).toLocaleString()}, 인게이지먼트율: ${v.engagementRate || 'N/A'}%, 좋아요율: ${v.likeRatio || 'N/A'}%, 게시일: ${v.publishedAt?.split('T')[0] || ''}, 길이: ${v.duration || 'N/A'}`
     ).join('\n');
+
+    // 게시 주기 분석
+    const dates = videos.filter(v => v.publishedAt).map(v => new Date(v.publishedAt)).sort((a, b) => a - b);
+    let postingPattern = '';
+    if (dates.length >= 2) {
+      const daySpan = Math.max((dates[dates.length - 1] - dates[0]) / (1000 * 60 * 60 * 24), 1);
+      postingPattern = `게시 주기: ${videos.length}개 콘텐츠 / ${Math.round(daySpan)}일 = 주 ${(videos.length / (daySpan / 7)).toFixed(1)}개`;
+    }
 
     // 경쟁사 요약
     const competitorSummary = competitors.length > 0
@@ -42,8 +50,9 @@ export default async function handler(req, res) {
 ## 우리 채널 현황
 ${channelSummary || '데이터 없음'}
 
-## 최근 영상 성과
+## 최근 콘텐츠 성과 (인게이지먼트 데이터 포함)
 ${videoSummary || '데이터 없음'}
+${postingPattern ? `\n${postingPattern}` : ''}
 
 ## 경쟁/관련 채널
 ${competitorSummary}
@@ -53,16 +62,24 @@ ${competitorSummary}
 
 ### 📊 채널 성과 요약
 - 현재 채널의 전반적 성과를 2~3줄로 요약
+- 인게이지먼트율, 좋아요율 등 핵심 지표 평가
 
-### 🏆 Top 콘텐츠 분석
-- 가장 성과가 좋은 영상 2~3개를 분석하고, 성공 요인을 구체적으로 설명
+### 📹 개별 콘텐츠 분석
+- 각 콘텐츠를 유형별로 분류 (VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)
+- 유형별 평균 인게이지먼트율 비교
+- 가장 성과가 좋은 콘텐츠 2~3개의 성공 요인 분석
 
-### 💡 콘텐츠 전략 제안
-- 데이터 기반으로 향후 콘텐츠 방향을 3~4개 구체적으로 제안
+### 📈 트렌드 감지
+- 최근 조회수/인게이지먼트 추세 (상승/하락)
+- 어떤 유형의 콘텐츠가 성장하고 있는지
+- 게시 주기 및 최적 업로드 타이밍 분석
+
+### 💡 향후 콘텐츠 방향성
+- 데이터 기반 콘텐츠 전략 3~5개 구체적으로 제안
+- 주간/월간 콘텐츠 캘린더 제안
 - 실행 가능한 액션 아이템 포함
-- 유사 업계 레퍼런스가 있다면 참조 권장
 
-### 📈 성장 기회
+### 🚀 성장 기회
 - 구독자/조회수 성장을 위한 기회 포인트 2~3개
 
 ### 🔍 경쟁 분석
@@ -79,8 +96,8 @@ ${competitorSummary}
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 2048,
-        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube 채널 데이터와 영상 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다.',
+        max_tokens: 4096,
+        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube/Instagram 채널 데이터와 콘텐츠 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다. 콘텐츠 유형(VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)을 분류하고, 유형별 성과를 비교 분석합니다. 게시 주기와 최적 업로드 타이밍도 분석합니다.',
         messages: [
           { role: 'user', content: userMessage },
         ],

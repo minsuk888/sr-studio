@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { aiService } from '../services/aiService';
+import AiInsightCard from '../components/AiInsightCard';
 import {
   format,
   startOfMonth,
@@ -81,6 +83,23 @@ export default function Calendar() {
 
   // delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
+
+  // AI insight
+  const [calendarAi, setCalendarAi] = useState(null);
+  const [calendarAiLoading, setCalendarAiLoading] = useState(false);
+
+  const handleCalendarAi = async () => {
+    setCalendarAiLoading(true);
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const upcoming = calendarEvents.filter((e) => e.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 15);
+      const deadlines = tasks.filter((t) => t.deadline && t.deadline >= today && t.status !== 'done').sort((a, b) => a.deadline.localeCompare(b.deadline)).slice(0, 10);
+      const context = `오늘: ${today}\n\n예정된 일정 (${upcoming.length}건):\n${upcoming.map((e) => `- ${e.date} ${e.title} (${e.type})`).join('\n') || '없음'}\n\n다가오는 업무 마감 (${deadlines.length}건):\n${deadlines.map((t) => `- ${t.deadline} ${t.title} (${t.priority}, ${t.status})`).join('\n') || '없음'}`;
+      const res = await aiService.analyze('calendar', context, '일정 충돌, 여유 기간, 바쁜 주간을 분석하고 일정 최적화를 제안해주세요.');
+      setCalendarAi(res.insight);
+    } catch { /* ignore */ }
+    setCalendarAiLoading(false);
+  };
 
   // Navigation
   const goToPrev = () => setCurrentDate((d) => (viewMode === 'month' ? subMonths(d, 1) : subWeeks(d, 1)));
@@ -215,6 +234,14 @@ export default function Calendar() {
         </div>
         <div className="w-[140px]" />
       </div>
+
+      {/* AI 인사이트 */}
+      <AiInsightCard
+        title="AI 일정 분석"
+        insight={calendarAi}
+        loading={calendarAiLoading}
+        onGenerate={handleCalendarAi}
+      />
 
       {/* Calendar Grid */}
       {viewMode === 'month' ? (

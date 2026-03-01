@@ -8,6 +8,8 @@ import Tasks from './pages/Tasks';
 import Calendar from './pages/Calendar';
 import Analytics from './pages/Analytics';
 import News from './pages/News';
+import KPI from './pages/KPI';
+import Meetings from './pages/Meetings';
 import Settings from './pages/Settings';
 
 function App() {
@@ -28,6 +30,8 @@ function App() {
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/news" element={<News />} />
+            <Route path="/kpi" element={<KPI />} />
+            <Route path="/meetings" element={<Meetings />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
