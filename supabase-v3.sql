@@ -108,13 +108,14 @@ create policy "allow_all" on meeting_action_items for all using (true) with chec
 -- 시드 데이터
 -- =====================================================
 
+-- created_by는 실제 members 테이블의 첫 번째 멤버 ID를 사용
 insert into kpi_items (title, category, target_value, current_value, unit, period_start, period_end, notes, created_by) values
-  ('유튜브 구독자 15만 달성', 'sns_growth', 150000, 128000, '명', '2026-01-01', '2026-06-30', '2026 상반기 목표', 1),
-  ('인스타그램 팔로워 10만 달성', 'sns_growth', 100000, 85000, '명', '2026-01-01', '2026-06-30', '2026 상반기 목표', 1),
-  ('월 평균 인게이지먼트 5%', 'engagement', 5.0, 4.2, '%', '2026-01-01', '2026-12-31', '전 채널 평균', 2),
-  ('월 콘텐츠 20개 이상 게시', 'content', 20, 14, '개', '2026-03-01', '2026-03-31', '유튜브+인스타+틱톡 합산', 3),
-  ('시즌 개막전 티켓 판매율 90%', 'event', 90, 80, '%', '2026-02-01', '2026-04-05', '온라인 판매 기준', 1),
-  ('시즌 스폰서 계약 5건', 'sponsorship', 5, 3, '건', '2026-01-01', '2026-04-30', '신규 스폰서 계약', 6);
+  ('유튜브 구독자 15만 달성', 'sns_growth', 150000, 128000, '명', '2026-01-01', '2026-06-30', '2026 상반기 목표', (select id from members order by id limit 1)),
+  ('인스타그램 팔로워 10만 달성', 'sns_growth', 100000, 85000, '명', '2026-01-01', '2026-06-30', '2026 상반기 목표', (select id from members order by id limit 1)),
+  ('월 평균 인게이지먼트 5%', 'engagement', 5.0, 4.2, '%', '2026-01-01', '2026-12-31', '전 채널 평균', (select id from members order by id limit 1 offset 1)),
+  ('월 콘텐츠 20개 이상 게시', 'content', 20, 14, '개', '2026-03-01', '2026-03-31', '유튜브+인스타+틱톡 합산', (select id from members order by id limit 1 offset 2)),
+  ('시즌 개막전 티켓 판매율 90%', 'event', 90, 80, '%', '2026-02-01', '2026-04-05', '온라인 판매 기준', (select id from members order by id limit 1)),
+  ('시즌 스폰서 계약 5건', 'sponsorship', 5, 3, '건', '2026-01-01', '2026-04-30', '신규 스폰서 계약', (select id from members order by id limit 1));
 
 insert into meetings (title, date, start_time, end_time, location, status) values
   ('마케팅 주간 회의', '2026-03-02', '10:00', '11:00', '회의실 A', 'completed'),
