@@ -39,24 +39,24 @@ const formattedDate = today.toLocaleDateString('ko-KR', {
 });
 
 const priorityConfig = {
-  high: { label: '높음', bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' },
-  medium: { label: '보통', bg: 'bg-yellow-100', text: 'text-yellow-700', dot: 'bg-yellow-500' },
-  low: { label: '낮음', bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' },
+  high: { label: '높음', bg: 'bg-red-500/20', text: 'text-red-400', dot: 'bg-red-500' },
+  medium: { label: '보통', bg: 'bg-yellow-500/20', text: 'text-yellow-400', dot: 'bg-yellow-500' },
+  low: { label: '낮음', bg: 'bg-blue-500/20', text: 'text-blue-400', dot: 'bg-blue-500' },
 };
 
 const statusConfig = {
-  todo: { label: '예정', bg: 'bg-slate-100', text: 'text-slate-600' },
-  'in-progress': { label: '진행 중', bg: 'bg-blue-100', text: 'text-blue-700' },
-  done: { label: '완료', bg: 'bg-green-100', text: 'text-green-700' },
+  todo: { label: '예정', bg: 'bg-white/10', text: 'text-gray-400' },
+  'in-progress': { label: '진행 중', bg: 'bg-blue-500/20', text: 'text-blue-400' },
+  done: { label: '완료', bg: 'bg-green-500/20', text: 'text-green-400' },
 };
 
 function deadlineBadge(deadline) {
-  if (!deadline) return { label: '-', cls: 'text-slate-400 bg-slate-50' };
+  if (!deadline) return { label: '-', cls: 'text-gray-500 bg-white/5' };
   const diff = Math.ceil((new Date(deadline) - today) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return { label: '기한 초과', cls: 'text-red-600 bg-red-50' };
-  if (diff <= 3) return { label: `D-${diff}`, cls: 'text-orange-600 bg-orange-50' };
-  if (diff <= 7) return { label: `D-${diff}`, cls: 'text-yellow-600 bg-yellow-50' };
-  return { label: `D-${diff}`, cls: 'text-slate-500 bg-slate-50' };
+  if (diff < 0) return { label: '기한 초과', cls: 'text-red-400 bg-red-500/20' };
+  if (diff <= 3) return { label: `D-${diff}`, cls: 'text-orange-400 bg-orange-500/20' };
+  if (diff <= 7) return { label: `D-${diff}`, cls: 'text-yellow-400 bg-yellow-500/20' };
+  return { label: `D-${diff}`, cls: 'text-gray-400 bg-white/5' };
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,7 @@ function deadlineBadge(deadline) {
 
 function KpiCard({ icon: Icon, iconBg, label, value, sub, extra }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 flex flex-col gap-3">
+    <div className="bg-surface-800 rounded-xl shadow-sm p-5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconBg}`}>
           <Icon className="w-5 h-5 text-white" />
@@ -73,10 +73,10 @@ function KpiCard({ icon: Icon, iconBg, label, value, sub, extra }) {
         {extra && <div>{extra}</div>}
       </div>
       <div>
-        <p className="text-2xl font-bold text-slate-800">{value}</p>
-        <p className="text-sm text-slate-500 mt-0.5">{label}</p>
+        <p className="text-2xl font-bold text-white">{value}</p>
+        <p className="text-sm text-gray-400 mt-0.5">{label}</p>
       </div>
-      {sub && <div className="text-xs text-slate-400 border-t border-slate-100 pt-2">{sub}</div>}
+      {sub && <div className="text-xs text-gray-500 border-t border-surface-700 pt-2">{sub}</div>}
     </div>
   );
 }
@@ -87,7 +87,7 @@ function CircularProgress({ percentage, size = 36, stroke = 4 }) {
   const offset = circumference - (percentage / 100) * circumference;
   return (
     <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#e2e8f0" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#21262d" strokeWidth={stroke} />
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -105,7 +105,7 @@ function CircularProgress({ percentage, size = 36, stroke = 4 }) {
 
 function ProgressBar({ value }) {
   return (
-    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+    <div className="w-full h-1.5 bg-surface-700 rounded-full overflow-hidden">
       <div
         className="h-full rounded-full transition-all"
         style={{
@@ -121,13 +121,13 @@ function ProgressBar({ value }) {
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-slate-100 p-3 text-xs">
-      <p className="font-semibold text-slate-700 mb-1.5">{label}</p>
+    <div className="bg-surface-800 rounded-lg shadow-lg border border-surface-700 p-3 text-xs">
+      <p className="font-semibold text-gray-300 mb-1.5">{label}</p>
       {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2 py-0.5">
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
-          <span className="text-slate-500">{entry.name}:</span>
-          <span className="font-medium text-slate-700">
+          <span className="text-gray-400">{entry.name}:</span>
+          <span className="font-medium text-gray-300">
             {(entry.value / 10000).toFixed(1)}만
           </span>
         </div>
@@ -234,7 +234,7 @@ export default function Dashboard() {
 
   if (loading || extraLoading) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
+      <div className="flex items-center justify-center h-64 text-gray-400">
         <Loader className="w-6 h-6 animate-spin mr-2" />
         데이터를 불러오는 중...
       </div>
@@ -246,11 +246,11 @@ export default function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <LayoutDashboard className="w-7 h-7 text-brand-500" />
             대시보드
           </h1>
-          <p className="text-sm text-slate-500 mt-1">{formattedDate}</p>
+          <p className="text-sm text-gray-400 mt-1">{formattedDate}</p>
         </div>
       </div>
 
@@ -284,7 +284,7 @@ export default function Dashboard() {
           label="SNS 도달"
           value={totalReach}
           extra={
-            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-600 bg-green-50 rounded-full px-2 py-0.5">
+            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-400 bg-green-500/20 rounded-full px-2 py-0.5">
               <ArrowUpRight className="w-3 h-3" />
               +15.5%
             </span>
@@ -304,13 +304,13 @@ export default function Dashboard() {
       {/* BOTTOM GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* 담당자별 업무 현황 */}
-        <div className="lg:col-span-3 bg-white rounded-xl shadow-sm p-5">
+        <div className="lg:col-span-3 bg-surface-800 rounded-xl shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2">
+            <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2">
               <CalendarClock className="w-4.5 h-4.5 text-brand-500" />
               담당자별 업무 현황
             </h2>
-            <span className="text-xs text-slate-400">진행 중 · 예정</span>
+            <span className="text-xs text-gray-500">진행 중 · 예정</span>
           </div>
 
           <div className="space-y-4">
@@ -322,17 +322,17 @@ export default function Dashboard() {
               const inProgressCount = memberTasks.filter((t) => t.status === 'in-progress').length;
 
               return (
-                <div key={member.id} className="border border-slate-100 rounded-lg overflow-hidden">
+                <div key={member.id} className="border border-surface-700 rounded-lg overflow-hidden">
                   {/* 담당자 헤더 */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-slate-50/80">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-surface-750">
                     <span className="text-xl">{member.avatar}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-slate-700">{member.name}</p>
-                        <span className="text-[10px] text-slate-400">{member.role}</span>
+                        <p className="text-sm font-semibold text-gray-300">{member.name}</p>
+                        <span className="text-[10px] text-gray-500">{member.role}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-gray-500">
                           업무 {memberTasks.length}건
                         </span>
                         {inProgressCount > 0 && (
@@ -343,13 +343,13 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs font-medium text-slate-500">평균 진행률</p>
-                      <p className="text-lg font-bold text-slate-700">{avgProgress}%</p>
+                      <p className="text-xs font-medium text-gray-400">평균 진행률</p>
+                      <p className="text-lg font-bold text-gray-300">{avgProgress}%</p>
                     </div>
                   </div>
 
                   {/* 업무 목록 */}
-                  <div className="divide-y divide-slate-50">
+                  <div className="divide-y divide-surface-700">
                     {memberTasks.map((task) => {
                       const p = priorityConfig[task.priority];
                       const s = statusConfig[task.status];
@@ -357,10 +357,10 @@ export default function Dashboard() {
                       return (
                         <div
                           key={task.id}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50/50 transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors"
                         >
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.dot}`} />
-                          <p className="flex-1 text-sm text-slate-600 truncate">{task.title}</p>
+                          <p className="flex-1 text-sm text-gray-400 truncate">{task.title}</p>
                           <div className="w-20 shrink-0">
                             <ProgressBar value={task.progress} />
                           </div>
@@ -379,7 +379,7 @@ export default function Dashboard() {
             })}
 
             {tasksByAssignee.length === 0 && (
-              <p className="text-sm text-slate-400 text-center py-6">진행 중인 업무가 없습니다</p>
+              <p className="text-sm text-gray-500 text-center py-6">진행 중인 업무가 없습니다</p>
             )}
           </div>
         </div>
@@ -387,8 +387,8 @@ export default function Dashboard() {
         {/* RIGHT COLUMN: Chart + News */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           {/* Mini SNS Chart */}
-          <div className="bg-white rounded-xl shadow-sm p-5">
-            <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2 mb-4">
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
+            <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2 mb-4">
               <TrendingUp className="w-4.5 h-4.5 text-brand-500" />
               SNS 팔로워 추이
             </h2>
@@ -409,10 +409,10 @@ export default function Dashboard() {
                       <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fontSize: 11, fill: '#94a3b8' }}
+                    tick={{ fontSize: 11, fill: '#6b7280' }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
@@ -428,8 +428,8 @@ export default function Dashboard() {
           </div>
 
           {/* Recent News */}
-          <div className="bg-white rounded-xl shadow-sm p-5">
-            <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2 mb-4">
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
+            <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2 mb-4">
               <Newspaper className="w-4.5 h-4.5 text-brand-500" />
               최신 뉴스
             </h2>
@@ -437,7 +437,7 @@ export default function Dashboard() {
               {latestNews.map((article) => (
                 <div
                   key={article.id}
-                  className="group flex gap-3 p-2.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="group flex gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
                 >
                   <div
                     className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold text-white ${
@@ -447,12 +447,12 @@ export default function Dashboard() {
                     {article.source === 'naver' ? 'N' : 'G'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-700 truncate group-hover:text-brand-500 transition-colors">
+                    <p className="text-sm font-medium text-gray-300 truncate group-hover:text-brand-500 transition-colors">
                       {article.title}
                     </p>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                    <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
                       <span>{article.publisher}</span>
-                      <span className="w-0.5 h-0.5 rounded-full bg-slate-300" />
+                      <span className="w-0.5 h-0.5 rounded-full bg-gray-600" />
                       <span className="flex items-center gap-0.5">
                         <Clock className="w-3 h-3" />
                         {article.date}

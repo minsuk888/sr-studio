@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   FileText,
   Plus,
@@ -24,24 +24,24 @@ import { useApp } from '../context/AppContext';
 import MeetingLiveView from '../components/MeetingLiveView';
 
 const STATUS_CONFIG = {
-  scheduled: { label: '예정', color: 'text-blue-600', bg: 'bg-blue-50', dot: 'bg-blue-400' },
-  in_progress: { label: '진행 중', color: 'text-yellow-600', bg: 'bg-yellow-50', dot: 'bg-yellow-400' },
-  completed: { label: '완료', color: 'text-green-600', bg: 'bg-green-50', dot: 'bg-green-400' },
+  scheduled: { label: '예정', color: 'text-blue-400', bg: 'bg-blue-500/20', dot: 'bg-blue-400' },
+  in_progress: { label: '진행 중', color: 'text-yellow-400', bg: 'bg-yellow-500/20', dot: 'bg-yellow-400' },
+  completed: { label: '완료', color: 'text-green-400', bg: 'bg-green-500/20', dot: 'bg-green-400' },
 };
 
 function renderInsightText(text) {
   return text
     .split('\n')
     .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2">${line.slice(3)}</h3>`;
+      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2">${line.slice(4)}</h3>`;
+      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2">${line.slice(3)}</h3>`;
       if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-        return `<li class="text-sm text-slate-600 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
+        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
+        return `<li class="text-sm text-gray-300 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
       }
       if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-      return `<p class="text-sm text-slate-600 leading-relaxed mb-1">${content}</p>`;
+      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
+      return `<p class="text-sm text-gray-300 leading-relaxed mb-1">${content}</p>`;
     })
     .join('');
 }
@@ -79,6 +79,11 @@ export default function Meetings() {
 
   // 라이브 모드
   const [isLiveMode, setIsLiveMode] = useState(false);
+
+  // 중복 등록 방지 ref
+  const addingAgendaRef = useRef(false);
+  const addingSubAgendaRef = useRef(false);
+  const addingActionRef = useRef(false);
 
   // 로드
   useEffect(() => {
@@ -164,12 +169,15 @@ export default function Meetings() {
     }
   };
 
-  // 안건 추가
+  // 안건 추가 (중복 방지 lock)
   const handleAddAgenda = async () => {
-    if (!selected || !newAgendaTitle.trim()) return;
+    if (!selected || !newAgendaTitle.trim() || addingAgendaRef.current) return;
+    addingAgendaRef.current = true;
+    const title = newAgendaTitle.trim();
+    setNewAgendaTitle('');
     try {
       const agenda = await meetingsService.addAgenda(selected.id, {
-        title: newAgendaTitle.trim(),
+        title,
         sort_order: (selected.meeting_agendas || []).length,
       });
       setMeetings((prev) =>
@@ -179,9 +187,10 @@ export default function Meetings() {
             : m,
         ),
       );
-      setNewAgendaTitle('');
     } catch (err) {
       alert('안건 추가 실패: ' + err.message);
+    } finally {
+      addingAgendaRef.current = false;
     }
   };
 
@@ -201,11 +210,14 @@ export default function Meetings() {
     }
   };
 
-  // 세부 안건 추가
+  // 세부 안건 추가 (중복 방지 lock)
   const handleAddSubAgenda = async () => {
-    if (!newSubAgendaTitle.trim() || !subAgendaParent || !selected) return;
+    if (!newSubAgendaTitle.trim() || !subAgendaParent || !selected || addingSubAgendaRef.current) return;
+    addingSubAgendaRef.current = true;
+    const title = newSubAgendaTitle.trim();
+    setNewSubAgendaTitle('');
     try {
-      const newSub = await meetingsService.addSubAgenda(selected.id, subAgendaParent, { title: newSubAgendaTitle.trim() });
+      const newSub = await meetingsService.addSubAgenda(selected.id, subAgendaParent, { title });
       setMeetings(prev =>
         prev.map(m =>
           m.id === selected.id
@@ -213,10 +225,11 @@ export default function Meetings() {
             : m
         )
       );
-      setNewSubAgendaTitle('');
       setSubAgendaParent(null);
     } catch (err) {
       console.error('세부 안건 추가 실패:', err);
+    } finally {
+      addingSubAgendaRef.current = false;
     }
   };
 
@@ -258,23 +271,18 @@ export default function Meetings() {
     setIsLiveMode(false);
   };
 
-  // 회의 완료 (라이브 모드에서)
-  const handleCompleteMeeting = async () => {
+  // 회의 완료 (라이브 모드에서) — 통합 회의록 내용을 전달받음
+  const handleCompleteMeeting = async (liveMinutesContent) => {
     if (!selected) return;
-    // 안건별 노트를 회의록으로 합치기
-    const agendas = (selected.meeting_agendas || []).sort((a, b) => a.sort_order - b.sort_order);
-    const compiledMinutes = agendas
-      .filter((a) => a.notes)
-      .map((a, i) => `## ${i + 1}. ${a.title}\n${a.notes}`)
-      .join('\n\n');
-    if (compiledMinutes) {
+    const finalMinutes = liveMinutesContent || '';
+    if (finalMinutes.trim()) {
       try {
-        await meetingsService.saveMinutes(selected.id, compiledMinutes);
-        setMinutesContent(compiledMinutes);
+        await meetingsService.saveMinutes(selected.id, finalMinutes);
+        setMinutesContent(finalMinutes);
         setMeetings((prev) =>
           prev.map((m) =>
             m.id === selected.id
-              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: compiledMinutes }] }
+              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: finalMinutes }] }
               : m
           )
         );
@@ -323,9 +331,10 @@ export default function Meetings() {
     }
   };
 
-  // 액션 아이템 추가
+  // 액션 아이템 추가 (중복 방지 lock)
   const handleAddAction = async () => {
-    if (!selected || !newActionTitle.trim()) return;
+    if (!selected || !newActionTitle.trim() || addingActionRef.current) return;
+    addingActionRef.current = true;
     try {
       const item = await meetingsService.addActionItem(selected.id, {
         title: newActionTitle.trim(),
@@ -342,6 +351,8 @@ export default function Meetings() {
       setNewActionAssignee('');
     } catch (err) {
       alert('액션 아이템 추가 실패: ' + err.message);
+    } finally {
+      addingActionRef.current = false;
     }
   };
 
@@ -437,7 +448,7 @@ export default function Meetings() {
 
   if (!loaded) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
+      <div className="flex items-center justify-center h-64 text-gray-400">
         <Loader className="w-6 h-6 animate-spin mr-2" />
         데이터를 불러오는 중...
       </div>
@@ -449,12 +460,12 @@ export default function Meetings() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">회의록</h1>
-          <p className="text-sm text-gray-500 mt-1">회의 일정, 아젠다, 회의록을 관리합니다</p>
+          <h1 className="text-2xl font-bold text-white">회의록</h1>
+          <p className="text-sm text-gray-400 mt-1">회의 일정, 아젠다, 회의록을 관리합니다</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors shadow-sm"
         >
           <Plus size={15} />
           새 회의
@@ -466,8 +477,8 @@ export default function Meetings() {
         {/* 좌측: 회의 목록 */}
         <div className="w-full lg:w-80 shrink-0 space-y-2">
           {meetings.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-              <FileText size={40} className="text-gray-300 mx-auto mb-3" />
+            <div className="bg-surface-800 rounded-xl shadow-sm p-8 text-center">
+              <FileText size={40} className="text-gray-600 mx-auto mb-3" />
               <p className="text-sm text-gray-400">회의를 추가해보세요</p>
             </div>
           ) : (
@@ -483,17 +494,17 @@ export default function Meetings() {
                   onClick={() => setSelectedId(m.id)}
                   className={`w-full text-left p-3.5 rounded-xl transition-all border ${
                     isSelected
-                      ? 'bg-red-50 border-red-200 shadow-sm'
-                      : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'
+                      ? 'bg-brand-500/10 border-brand-500/30 shadow-sm'
+                      : 'bg-surface-800 border-surface-700 hover:border-surface-700 hover:shadow-sm'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <h3 className={`text-sm font-semibold truncate ${isSelected ? 'text-red-700' : 'text-gray-800'}`}>
+                    <h3 className={`text-sm font-semibold truncate ${isSelected ? 'text-brand-400' : 'text-gray-200'}`}>
                       {m.title}
                     </h3>
                     <div className={`w-2 h-2 rounded-full shrink-0 ${stCfg.dot}`} />
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                  <div className="flex items-center gap-2 text-[11px] text-gray-500">
                     <span className="flex items-center gap-0.5">
                       <Calendar size={10} />
                       {m.date}
@@ -516,8 +527,8 @@ export default function Meetings() {
         {/* 우측: 상세 */}
         <div className="flex-1 min-w-0">
           {!selected ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center h-full flex flex-col items-center justify-center">
-              <FileText size={48} className="text-gray-200 mb-4" />
+            <div className="bg-surface-800 rounded-xl shadow-sm p-12 text-center h-full flex flex-col items-center justify-center">
+              <FileText size={48} className="text-gray-600 mb-4" />
               <p className="text-sm text-gray-400">좌측에서 회의를 선택하거나 새 회의를 추가하세요</p>
             </div>
           ) : isLiveMode ? (
@@ -534,11 +545,11 @@ export default function Meetings() {
           ) : (
             <div className="space-y-4">
               {/* 회의 기본 정보 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
                 <div className="flex flex-col sm:flex-row items-start sm:justify-between gap-3 mb-4">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{selected.title}</h2>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-xs text-gray-500">
+                    <h2 className="text-lg font-bold text-white">{selected.title}</h2>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-xs text-gray-400">
                       <span className="flex items-center gap-1"><Calendar size={12} />{selected.date}</span>
                       {selected.start_time && (
                         <span className="flex items-center gap-1">
@@ -571,7 +582,7 @@ export default function Meetings() {
                     )}
                     <button
                       onClick={() => handleDeleteMeeting(selected.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-500 hover:text-red-400 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -580,7 +591,7 @@ export default function Meetings() {
 
                 {/* 참석자 */}
                 <div>
-                  <h3 className="text-xs font-semibold text-gray-500 mb-2 flex items-center gap-1">
+                  <h3 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-1">
                     <Users size={12} /> 참석자
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
@@ -592,8 +603,8 @@ export default function Meetings() {
                           onClick={() => toggleAttendee(m.id)}
                           className={`px-2.5 py-1 text-xs rounded-full transition-colors border ${
                             isAttendee
-                              ? 'bg-red-50 border-red-200 text-red-600 font-medium'
-                              : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100'
+                              ? 'bg-brand-500/10 border-brand-500/30 text-brand-400 font-medium'
+                              : 'bg-white/5 border-surface-700 text-gray-500 hover:bg-white/10'
                           }`}
                         >
                           {m.avatar} {m.name}
@@ -605,8 +616,8 @@ export default function Meetings() {
               </div>
 
               {/* 안건 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
+                <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-1.5">
                   <ListOrdered size={15} className="text-brand-500" />
                   안건
                 </h3>
@@ -615,11 +626,11 @@ export default function Meetings() {
                     <div key={agenda.id}>
                       {/* Parent agenda */}
                       <div className="flex items-center gap-2 group">
-                        <span className="text-xs font-bold text-gray-400 w-5">{idx + 1}.</span>
-                        <span className="text-sm text-gray-700 flex-1 font-medium">{agenda.title}</span>
+                        <span className="text-xs font-bold text-gray-500 w-5">{idx + 1}.</span>
+                        <span className="text-sm text-gray-300 flex-1 font-medium">{agenda.title}</span>
                         <button
                           onClick={() => setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id)}
-                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-50 transition-all cursor-pointer"
+                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-500/10 transition-all cursor-pointer"
                           title="세부 업무 추가"
                         >
                           <Plus size={11} />
@@ -627,7 +638,7 @@ export default function Meetings() {
                         </button>
                         <button
                           onClick={() => handleRemoveAgenda(agenda.id)}
-                          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
+                          className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
                         >
                           <X size={12} />
                         </button>
@@ -635,11 +646,11 @@ export default function Meetings() {
                       {/* Sub-items */}
                       {agenda.children.map((sub, subIdx) => (
                         <div key={sub.id} className="flex items-center gap-2 group ml-7 mt-0.5">
-                          <span className="text-[11px] text-gray-300 w-8">{idx + 1}.{subIdx + 1}</span>
-                          <span className="text-xs text-gray-500 flex-1">{sub.title}</span>
+                          <span className="text-[11px] text-gray-600 w-8">{idx + 1}.{subIdx + 1}</span>
+                          <span className="text-xs text-gray-400 flex-1">{sub.title}</span>
                           <button
                             onClick={() => handleRemoveAgenda(sub.id)}
-                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-all cursor-pointer"
+                            className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
                           >
                             <X size={10} />
                           </button>
@@ -652,9 +663,9 @@ export default function Meetings() {
                             type="text"
                             value={newSubAgendaTitle}
                             onChange={(e) => setNewSubAgendaTitle(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddSubAgenda()}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddSubAgenda(); } }}
                             placeholder="세부 업무 항목..."
-                            className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            className="flex-1 px-2.5 py-1.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                             autoFocus
                           />
                           <button
@@ -666,7 +677,7 @@ export default function Meetings() {
                           </button>
                           <button
                             onClick={() => { setSubAgendaParent(null); setNewSubAgendaTitle(''); }}
-                            className="p-1 text-gray-300 hover:text-gray-500 cursor-pointer"
+                            className="p-1 text-gray-600 hover:text-gray-400 cursor-pointer"
                           >
                             <X size={12} />
                           </button>
@@ -681,9 +692,9 @@ export default function Meetings() {
                     type="text"
                     value={newAgendaTitle}
                     onChange={(e) => setNewAgendaTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAgenda()}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddAgenda(); } }}
                     placeholder="새 안건 제목을 입력하세요..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                   />
                   <button
                     onClick={handleAddAgenda}
@@ -696,9 +707,9 @@ export default function Meetings() {
               </div>
 
               {/* 회의록 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-gray-200 flex items-center gap-1.5">
                     <FileText size={15} className="text-emerald-500" />
                     회의록
                   </h3>
@@ -716,16 +727,16 @@ export default function Meetings() {
                   onChange={(e) => setMinutesContent(e.target.value)}
                   placeholder="회의 내용을 기록하세요..."
                   rows={8}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-y"
+                  className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-y"
                 />
               </div>
 
               {/* AI 요약 */}
-              <div className="bg-gradient-to-br from-brand-50 via-white to-purple-50 rounded-xl shadow-sm border border-brand-100">
+              <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-purple-500" />
-                    <span className="text-sm font-semibold text-gray-700">AI 회의 요약</span>
+                    <span className="text-sm font-semibold text-gray-200">AI 회의 요약</span>
                   </div>
                   <button
                     onClick={handleAiSummary}
@@ -737,7 +748,7 @@ export default function Meetings() {
                   </button>
                 </div>
                 {aiLoading && (
-                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-brand-600">
+                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-brand-400">
                     <Loader className="w-5 h-5 animate-spin" />
                     회의록을 분석하고 있습니다...
                   </div>
@@ -753,8 +764,8 @@ export default function Meetings() {
               </div>
 
               {/* 액션 아이템 */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
+                <h3 className="text-sm font-semibold text-gray-200 mb-3 flex items-center gap-1.5">
                   <CheckCircle2 size={15} className="text-orange-500" />
                   액션 아이템
                 </h3>
@@ -766,27 +777,27 @@ export default function Meetings() {
                       <div key={action.id} className="flex items-center gap-2 group">
                         <button
                           onClick={() => handleToggleAction(action.id, action.status)}
-                          className={`shrink-0 ${isDone ? 'text-green-500' : 'text-gray-300 hover:text-gray-500'}`}
+                          className={`shrink-0 ${isDone ? 'text-green-500' : 'text-gray-600 hover:text-gray-400'}`}
                         >
                           {isDone ? <CheckCircle2 size={16} /> : <Circle size={16} />}
                         </button>
-                        <span className={`text-sm flex-1 ${isDone ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+                        <span className={`text-sm flex-1 ${isDone ? 'line-through text-gray-500' : 'text-gray-300'}`}>
                           {action.title}
                         </span>
                         {assignee && (
-                          <span className="text-[10px] text-gray-400">{assignee.avatar} {assignee.name}</span>
+                          <span className="text-[10px] text-gray-500">{assignee.avatar} {assignee.name}</span>
                         )}
                         {!action.task_id && (
                           <button
                             onClick={() => handleConvertToTask(action)}
-                            className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-2 py-0.5 text-[10px] bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-all"
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-2 py-0.5 text-[10px] bg-blue-500/20 text-blue-400 rounded-full hover:bg-blue-500/30 transition-all"
                           >
                             <ArrowRight size={10} />
                             업무로 변환
                           </button>
                         )}
                         {action.task_id && (
-                          <span className="text-[10px] px-2 py-0.5 bg-green-50 text-green-600 rounded-full">업무 연결됨</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full">업무 연결됨</span>
                         )}
                       </div>
                     );
@@ -797,14 +808,14 @@ export default function Meetings() {
                     type="text"
                     value={newActionTitle}
                     onChange={(e) => setNewActionTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddAction()}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddAction(); } }}
                     placeholder="액션 아이템 추가..."
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   />
                   <select
                     value={newActionAssignee}
                     onChange={(e) => setNewActionAssignee(e.target.value)}
-                    className="px-2 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="px-2 py-2 border border-surface-700 bg-surface-900 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="">담당자</option>
                     {members.map((m) => (
@@ -832,68 +843,68 @@ export default function Meetings() {
           onClick={() => setShowCreateModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+            className="bg-surface-800 rounded-2xl shadow-2xl w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">새 회의</h2>
-                <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full hover:bg-gray-100 text-gray-400">
+                <h2 className="text-lg font-bold text-white">새 회의</h2>
+                <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full hover:bg-white/5 text-gray-400">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">회의 제목</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">회의 제목</label>
                   <input
                     type="text"
                     value={createForm.title}
                     onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
                     placeholder="예: 마케팅 주간 회의"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">날짜</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">날짜</label>
                     <input
                       type="date"
                       value={createForm.date}
                       onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">장소</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">장소</label>
                     <input
                       type="text"
                       value={createForm.location}
                       onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
                       placeholder="회의실 A"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">시작 시간</label>
                     <input
                       type="time"
                       value={createForm.start_time}
                       onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">종료 시간</label>
                     <input
                       type="time"
                       value={createForm.end_time}
                       onChange={(e) => setCreateForm({ ...createForm, end_time: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                     />
                   </div>
                 </div>

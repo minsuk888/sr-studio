@@ -44,16 +44,16 @@ export default function Login() {
             <Flag className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white tracking-wide">SR STUDIO</h1>
-          <p className="text-sm text-slate-400 mt-1 tracking-widest">MARKETING TOOL</p>
+          <p className="text-sm text-gray-500 mt-1 tracking-widest">MARKETING TOOL</p>
         </div>
 
         {/* 로그인 카드 */}
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-2xl">
           <div className="text-center mb-6">
             <div className="w-12 h-12 bg-slate-700/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <Lock className="w-5 h-5 text-slate-300" />
+              <Lock className="w-5 h-5 text-gray-400" />
             </div>
-            <p className="text-sm text-slate-300">비밀번호를 입력해주세요</p>
+            <p className="text-sm text-gray-400">비밀번호를 입력해주세요</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -64,7 +64,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호"
                 autoFocus
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center text-lg tracking-[0.3em] placeholder:text-slate-500 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center text-lg tracking-[0.3em] placeholder:text-gray-600 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
               />
             </div>
 
@@ -93,7 +93,7 @@ export default function Login() {
         </div>
 
         {/* 하단 텍스트 */}
-        <p className="text-center text-xs text-slate-500 mt-6">
+        <p className="text-center text-xs text-gray-400 mt-6">
           Super Race Marketing Management System
         </p>
       </div>

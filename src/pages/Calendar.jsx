@@ -38,9 +38,9 @@ const PRESET_COLORS = [
 ];
 
 const PRIORITY_TEXT_COLORS = {
-  high: 'text-red-700 bg-red-50',
-  medium: 'text-amber-700 bg-amber-50',
-  low: 'text-blue-700 bg-blue-50',
+  high: 'text-red-400 bg-red-500/10',
+  medium: 'text-amber-400 bg-amber-500/10',
+  low: 'text-blue-400 bg-blue-500/10',
 };
 
 function getItemsForDay(day, tasks, calendarEvents) {
@@ -183,7 +183,7 @@ export default function Calendar() {
       return (
         <div
           key={item.id}
-          className={`text-[10px] leading-tight px-1.5 py-0.5 rounded truncate border-l-2 border-dashed ${PRIORITY_TEXT_COLORS[item.priority] || 'text-slate-600 bg-slate-50'}`}
+          className={`text-[10px] leading-tight px-1.5 py-0.5 rounded truncate border-l-2 border-dashed ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'}`}
           title={item.title}
         >
           {item.title}
@@ -208,8 +208,8 @@ export default function Calendar() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">캘린더</h1>
-          <p className="text-sm text-slate-500 mt-1">일정과 업무 마감일을 한눈에 관리하세요</p>
+          <h1 className="text-2xl font-bold text-white">캘린더</h1>
+          <p className="text-sm text-gray-400 mt-1">일정과 업무 마감일을 한눈에 관리하세요</p>
         </div>
         <button
           onClick={() => openAddModal(null)}
@@ -220,18 +220,18 @@ export default function Calendar() {
       </div>
 
       {/* Controls bar */}
-      <div className="flex items-center justify-between bg-white rounded-xl shadow-sm px-5 py-3">
+      <div className="flex items-center justify-between bg-surface-800 rounded-xl shadow-sm px-5 py-3">
         <div className="flex items-center gap-3">
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
-            <button onClick={() => setViewMode('month')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'month' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>월간</button>
-            <button onClick={() => setViewMode('week')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'week' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>주간</button>
+          <div className="flex bg-surface-700 rounded-lg p-0.5">
+            <button onClick={() => setViewMode('month')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'month' ? 'bg-surface-800 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>월간</button>
+            <button onClick={() => setViewMode('week')} className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${viewMode === 'week' ? 'bg-surface-800 text-white shadow-sm' : 'text-gray-400 hover:text-gray-200'}`}>주간</button>
           </div>
-          <button onClick={goToToday} className="px-3 py-1.5 text-xs font-medium text-brand-500 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer">오늘</button>
+          <button onClick={goToToday} className="px-3 py-1.5 text-xs font-medium text-brand-500 border border-brand-500/30 rounded-lg hover:bg-brand-500/10 transition-colors cursor-pointer">오늘</button>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={goToPrev} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"><ChevronLeft className="w-5 h-5 text-slate-600" /></button>
-          <h2 className="text-lg font-bold text-slate-800 min-w-[200px] text-center">{headerText}</h2>
-          <button onClick={goToNext} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"><ChevronRight className="w-5 h-5 text-slate-600" /></button>
+          <button onClick={goToPrev} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"><ChevronLeft className="w-5 h-5 text-gray-400" /></button>
+          <h2 className="text-lg font-bold text-white min-w-[200px] text-center">{headerText}</h2>
+          <button onClick={goToNext} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"><ChevronRight className="w-5 h-5 text-gray-400" /></button>
         </div>
         <div className="w-[140px]" />
       </div>
@@ -255,59 +255,59 @@ export default function Calendar() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeModal} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="relative bg-surface-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-slate-800">{editingEvent ? '이벤트 수정' : '새 이벤트 추가'}</h3>
-              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"><X className="w-5 h-5 text-slate-400" /></button>
+              <h3 className="text-lg font-bold text-white">{editingEvent ? '이벤트 수정' : '새 이벤트 추가'}</h3>
+              <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">제목</label>
-                <input type="text" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="이벤트 제목을 입력하세요" className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors" />
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">제목</label>
+                <input type="text" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="이벤트 제목을 입력하세요" className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">날짜</label>
-                <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors" />
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">날짜</label>
+                <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">유형</label>
-                <select value={eventForm.type} onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })} className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-white">
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">유형</label>
+                <select value={eventForm.type} onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white">
                   <option value="meeting">미팅</option>
                   <option value="event">이벤트</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">색상</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">색상</label>
                 <div className="flex items-center gap-2">
                   {PRESET_COLORS.map((c) => (
-                    <button key={c.name} onClick={() => setEventForm({ ...eventForm, color: c.value })} className={`w-8 h-8 rounded-full transition-all cursor-pointer ${eventForm.color === c.value ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : 'hover:scale-105'}`} style={{ backgroundColor: c.value }} />
+                    <button key={c.name} onClick={() => setEventForm({ ...eventForm, color: c.value })} className={`w-8 h-8 rounded-full transition-all cursor-pointer ${eventForm.color === c.value ? 'ring-2 ring-offset-2 ring-surface-700 scale-110' : 'hover:scale-105'}`} style={{ backgroundColor: c.value }} />
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">메모</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">메모</label>
                 <textarea
                   value={eventForm.description}
                   onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
                   placeholder="일정 메모를 입력하세요 (선택사항)"
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors resize-y"
+                  className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors resize-y bg-surface-900 text-white"
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-surface-700">
               <div>
                 {editingEvent && (
                   <button
                     onClick={() => { closeModal(); requestDelete(editingEvent.id, editingEvent.title); }}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" /> 삭제
                   </button>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={closeModal} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">취소</button>
+                <button onClick={closeModal} className="px-4 py-2 text-sm font-medium text-gray-400 hover:bg-white/5 rounded-lg transition-colors cursor-pointer">취소</button>
                 <button onClick={handleSaveEvent} disabled={!eventForm.title.trim() || !eventForm.date} className="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer">{editingEvent ? '수정' : '저장'}</button>
               </div>
             </div>
@@ -319,17 +319,17 @@ export default function Calendar() {
       {confirmDelete && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDelete(null)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 z-10 text-center">
-            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+          <div className="relative bg-surface-800 rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 z-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-red-500" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">일정 삭제</h3>
-            <p className="text-sm text-slate-500 mb-1">
-              <span className="font-semibold text-slate-700">"{confirmDelete.name}"</span>
+            <h3 className="text-lg font-bold text-white mb-2">일정 삭제</h3>
+            <p className="text-sm text-gray-400 mb-1">
+              <span className="font-semibold text-gray-300">"{confirmDelete.name}"</span>
             </p>
-            <p className="text-sm text-slate-500 mb-6">이 일정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+            <p className="text-sm text-gray-400 mb-6">이 일정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
             <div className="flex items-center justify-center gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer">취소</button>
+              <button onClick={() => setConfirmDelete(null)} className="px-5 py-2.5 rounded-lg text-sm font-medium text-gray-400 bg-surface-700 hover:bg-white/10 transition-colors cursor-pointer">취소</button>
               <button onClick={confirmDeleteAction} className="px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors cursor-pointer">삭제</button>
             </div>
           </div>
@@ -342,10 +342,10 @@ export default function Calendar() {
 // ========== MONTH VIEW ==========
 function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal, renderMonthItem }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-slate-100">
+    <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="grid grid-cols-7 border-b border-surface-700">
         {DAY_NAMES.map((name, i) => (
-          <div key={name} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-slate-500'}`}>{name}</div>
+          <div key={name} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>{name}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -361,16 +361,16 @@ function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal
             <div
               key={idx}
               onClick={() => openAddModal(day)}
-              className={`min-h-[100px] border border-slate-100 p-1.5 cursor-pointer transition-colors hover:bg-slate-50 ${!inMonth ? 'bg-slate-50/50' : ''}`}
+              className={`min-h-[100px] border border-surface-700 p-1.5 cursor-pointer transition-colors hover:bg-white/5 ${!inMonth ? 'bg-surface-700/50' : ''}`}
             >
               <div className="flex justify-center mb-1">
                 <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-medium rounded-full ${
-                  today ? 'bg-brand-500 text-white font-bold' : !inMonth ? 'text-slate-300' : dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-slate-700'
+                  today ? 'bg-brand-500 text-white font-bold' : !inMonth ? 'text-gray-400' : dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-300'
                 }`}>{format(day, 'd')}</span>
               </div>
               <div className="space-y-0.5">
                 {visibleItems.map((item) => renderMonthItem(item))}
-                {moreCount > 0 && <div className="text-[10px] text-slate-400 px-1.5">+{moreCount} more</div>}
+                {moreCount > 0 && <div className="text-[10px] text-gray-500 px-1.5">+{moreCount} more</div>}
               </div>
             </div>
           );
@@ -383,8 +383,8 @@ function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal
 // ========== WEEK VIEW ==========
 function WeekView({ weekDays, tasks, calendarEvents, members, getMemberName, openAddModal, openEditModal, requestDelete }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="grid grid-cols-7 divide-x divide-slate-100">
+    <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden">
+      <div className="grid grid-cols-7 divide-x divide-surface-700">
         {weekDays.map((day, idx) => {
           const today = isToday(day);
           const items = getItemsForDay(day, tasks, calendarEvents);
@@ -392,14 +392,14 @@ function WeekView({ weekDays, tasks, calendarEvents, members, getMemberName, ope
 
           return (
             <div key={idx} className="min-h-[420px] flex flex-col">
-              <div className={`sticky top-0 px-3 py-3 border-b border-slate-100 text-center ${today ? 'bg-brand-50' : 'bg-slate-50/80'}`}>
-                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-slate-400'}`}>{DAY_NAMES[dayOfWeek]}</div>
-                <div className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full ${today ? 'bg-brand-500 text-white' : 'text-slate-700'}`}>{format(day, 'd')}</div>
+              <div className={`sticky top-0 px-3 py-3 border-b border-surface-700 text-center ${today ? 'bg-brand-500/10' : 'bg-surface-700/80'}`}>
+                <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-500'}`}>{DAY_NAMES[dayOfWeek]}</div>
+                <div className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full ${today ? 'bg-brand-500 text-white' : 'text-gray-300'}`}>{format(day, 'd')}</div>
               </div>
               <div className="flex-1 p-2 space-y-2">
                 {items.length === 0 && (
                   <div onClick={() => openAddModal(day)} className="h-full flex items-center justify-center cursor-pointer group">
-                    <Plus className="w-5 h-5 text-slate-200 group-hover:text-slate-400 transition-colors" />
+                    <Plus className="w-5 h-5 text-gray-400 group-hover:text-gray-500 transition-colors" />
                   </div>
                 )}
                 {items.map((item) => (
@@ -420,7 +420,7 @@ function WeekViewItem({ item, tasks, calendarEvents, getMemberName, openEditModa
     const taskData = tasks.find((t) => `task-${t.id}` === item.id);
     return (
       <div
-        className={`p-2 rounded-lg border-l-[3px] border-dashed text-xs ${PRIORITY_TEXT_COLORS[item.priority] || 'text-slate-600 bg-slate-50'}`}
+        className={`p-2 rounded-lg border-l-[3px] border-dashed text-xs ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'}`}
         style={{ borderLeftColor: item.priority === 'high' ? '#ef4444' : item.priority === 'medium' ? '#f59e0b' : '#3b82f6' }}
       >
         <div className="flex items-start gap-1 mb-1">

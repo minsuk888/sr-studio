@@ -13,18 +13,19 @@
   --color-brand-900: #7f1d1d;
 
   /* Dark surface tokens */
-  --color-surface-700: #2a2a2a;
-  --color-surface-800: #1e1e1e;
-  --color-surface-850: #1a1a1a;
-  --color-surface-900: #111111;
-  --color-surface-950: #0a0a0a;
+  --color-surface-700: #21262d;
+  --color-surface-750: #1c2128;
+  --color-surface-800: #161b22;
+  --color-surface-850: #131820;
+  --color-surface-900: #0d1117;
+  --color-surface-950: #090c10;
 
   --color-slate-750: #293548;
 
   /* Sidebar — True Black */
-  --color-sidebar: #0a0a0a;
-  --color-sidebar-hover: #1a1a1a;
-  --color-sidebar-active: #1a1a1a;
+  --color-sidebar: #010409;
+  --color-sidebar-hover: #161b22;
+  --color-sidebar-active: #161b22;
 }
 
 @layer base {
@@ -36,8 +37,8 @@
 
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background-color: #f1f5f9;
-    color: #1e293b;
+    background-color: #0d1117;
+    color: #e6edf3;
     min-height: 100vh;
   }
 
@@ -53,10 +54,10 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #30363d;
     border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #484f58;
   }
 }

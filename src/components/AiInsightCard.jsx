@@ -5,15 +5,15 @@ function renderInsightText(text) {
   return text
     .split('\n')
     .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2">${line.slice(3)}</h3>`;
+      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2">${line.slice(4)}</h3>`;
+      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2">${line.slice(3)}</h3>`;
       if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-        return `<li class="text-sm text-slate-600 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
+        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
+        return `<li class="text-sm text-gray-400 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
       }
       if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-      return `<p class="text-sm text-slate-600 leading-relaxed mb-1">${content}</p>`;
+      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
+      return `<p class="text-sm text-gray-400 leading-relaxed mb-1">${content}</p>`;
     })
     .join('');
 }
@@ -28,14 +28,14 @@ export default function AiInsightCard({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100">
+    <div className="bg-gradient-to-br from-brand-500/10 via-surface-800 to-purple-500/10 rounded-xl shadow-sm border border-brand-500/20">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 text-left"
       >
         <div className="flex items-center gap-2">
           <Sparkles size={16} className="text-purple-500" />
-          <span className="text-sm font-semibold text-gray-700">{title}</span>
+          <span className="text-sm font-semibold text-gray-300">{title}</span>
         </div>
         {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
       </button>
@@ -43,7 +43,7 @@ export default function AiInsightCard({
       {open && (
         <div className="px-4 pb-4">
           {loading ? (
-            <div className="flex items-center gap-2 py-6 justify-center text-sm text-indigo-600">
+            <div className="flex items-center gap-2 py-6 justify-center text-sm text-brand-400">
               <Loader className="w-5 h-5 animate-spin" />
               분석 중...
             </div>
@@ -55,7 +55,7 @@ export default function AiInsightCard({
               />
               <button
                 onClick={onGenerate}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 text-xs text-brand-400 hover:bg-brand-500/10 rounded-lg transition-colors"
               >
                 <Sparkles size={12} />
                 다시 분석

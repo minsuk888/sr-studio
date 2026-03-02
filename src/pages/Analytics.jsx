@@ -72,16 +72,16 @@ function renderInsightText(text) {
   return text
     .split('\n')
     .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2 flex items-center gap-1">${line.slice(3)}</h3>`;
-      if (line.startsWith('# ')) return `<h3 class="text-base font-bold text-slate-800 mt-4 mb-2">${line.slice(2)}</h3>`;
+      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
+      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(3)}</h3>`;
+      if (line.startsWith('# ')) return `<h3 class="text-base font-bold text-gray-100 mt-4 mb-2">${line.slice(2)}</h3>`;
       if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-        return `<li class="text-sm text-slate-600 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
+        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
+        return `<li class="text-sm text-gray-300 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
       }
       if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-      return `<p class="text-sm text-slate-600 leading-relaxed mb-1">${content}</p>`;
+      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
+      return `<p class="text-sm text-gray-300 leading-relaxed mb-1">${content}</p>`;
     })
     .join('');
 }
@@ -92,14 +92,14 @@ const CHANNEL_COLORS = ['#FF0000', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '
 // 플랫폼 설정
 const PLATFORM_CONFIG = {
   youtube: {
-    icon: Youtube, color: '#FF0000', bgColor: 'bg-red-50', textColor: 'text-red-500',
-    borderColor: 'border-red-300', ringColor: 'focus:ring-red-500',
+    icon: Youtube, color: '#FF0000', bgColor: 'bg-red-500/10', textColor: 'text-red-500',
+    borderColor: 'border-red-500/30', ringColor: 'focus:ring-red-500',
     label: 'YouTube', contentLabel: '영상', idPlaceholder: '채널 ID (UCxxxxxxx) 또는 @handle',
     getLink: (v) => `https://youtube.com/watch?v=${v.video_id || v.videoId}`,
   },
   instagram: {
-    icon: Instagram, color: '#E4405F', bgColor: 'bg-pink-50', textColor: 'text-pink-500',
-    borderColor: 'border-pink-300', ringColor: 'focus:ring-pink-500',
+    icon: Instagram, color: '#E4405F', bgColor: 'bg-pink-500/10', textColor: 'text-pink-500',
+    borderColor: 'border-pink-500/30', ringColor: 'focus:ring-pink-500',
     label: 'Instagram', contentLabel: '게시물', idPlaceholder: 'Instagram Business Account ID',
     getLink: (v) => v.permalink || `https://instagram.com/p/${v.video_id || v.videoId}`,
   },
@@ -126,10 +126,10 @@ const SORT_OPTIONS = [
 function EngagementBadge({ rate }) {
   const color =
     rate >= 5
-      ? 'bg-green-100 text-green-700'
+      ? 'bg-green-500/15 text-green-400'
       : rate >= 2
-        ? 'bg-yellow-100 text-yellow-700'
-        : 'bg-gray-100 text-gray-500';
+        ? 'bg-yellow-500/10 text-yellow-400'
+        : 'bg-surface-700 text-gray-400';
   return (
     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${color}`}>
       {rate.toFixed(1)}%
@@ -788,7 +788,7 @@ export default function Analytics() {
   // ---- 로딩 ----
   if (!loaded) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
+      <div className="flex items-center justify-center h-64 text-gray-500">
         <Loader className="w-6 h-6 animate-spin mr-2" />
         데이터를 불러오는 중...
       </div>
@@ -800,8 +800,8 @@ export default function Analytics() {
       {/* ===== Header ===== */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">SNS 분석 대시보드</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-white">SNS 분석 대시보드</h1>
+          <p className="text-sm text-gray-400 mt-1">
             {channels.length > 0
               ? `YouTube 채널 ${channels.length}개 등록됨 (우리 ${ownChannels.length} / 경쟁 ${competitorChannels.length})`
               : 'YouTube 채널을 등록하면 실시간 분석이 시작됩니다'}
@@ -810,7 +810,7 @@ export default function Analytics() {
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowChannelModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-surface-800 text-gray-300 text-sm font-medium rounded-lg hover:bg-white/5 transition-colors border border-surface-700 shadow-sm"
           >
             <Settings size={15} />
             채널 관리
@@ -818,7 +818,7 @@ export default function Analytics() {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing || channels.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-2 bg-surface-800 text-gray-300 text-sm font-medium rounded-lg hover:bg-white/5 transition-colors border border-surface-700 shadow-sm disabled:opacity-50"
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
             {isRefreshing ? '갱신 중...' : '새로고침'}
@@ -827,7 +827,7 @@ export default function Analytics() {
       </div>
 
       {/* ===== 탭 네비게이션 ===== */}
-      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex items-center gap-1 border-b border-surface-700 overflow-x-auto">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           return (
@@ -835,7 +835,7 @@ export default function Analytics() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`relative px-3 sm:px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
-                activeTab === tab.key ? 'text-red-500' : 'text-slate-500 hover:text-slate-700'
+                activeTab === tab.key ? 'text-red-500' : 'text-gray-400 hover:text-gray-200'
               }`}
             >
               <span className="flex items-center gap-1.5">
@@ -852,13 +852,13 @@ export default function Analytics() {
 
       {/* ===== 채널 없을 때 안내 ===== */}
       {channels.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+        <div className="bg-surface-800 rounded-xl shadow-sm p-12 text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Youtube size={40} className="text-red-400" />
             <Instagram size={40} className="text-pink-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">SNS 채널을 등록해보세요</h3>
-          <p className="text-sm text-gray-500 mb-4">
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">SNS 채널을 등록해보세요</h3>
+          <p className="text-sm text-gray-400 mb-4">
             YouTube, Instagram 채널을 등록하면 구독자 수, 조회수, 인게이지먼트 등을 실시간으로 분석할 수 있습니다.
           </p>
           <button
@@ -877,10 +877,10 @@ export default function Analytics() {
       {activeTab === 'overview' && channels.length > 0 && (
         <div className="space-y-6">
               {isStaleData && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between mb-4">
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <RefreshCw size={16} className="text-amber-500" />
-                    <p className="text-sm text-amber-700">캐시된 데이터가 오래되었습니다. 새로고침하여 최신 데이터를 불러오세요.</p>
+                    <p className="text-sm text-amber-400">캐시된 데이터가 오래되었습니다. 새로고침하여 최신 데이터를 불러오세요.</p>
                   </div>
                   <button
                     onClick={handleRefresh}
@@ -915,11 +915,11 @@ export default function Analytics() {
             return (
               <div key={ch.id} className="space-y-4">
                 {/* 채널 프로필 헤더 */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                <div className="bg-surface-800 rounded-xl shadow-sm p-6 border border-surface-700">
                   {/* 채널 프로필 헤더 — 확대 */}
                   <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 mb-6">
                     {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return ch.thumbnail ? (
-                      <img src={ch.thumbnail} alt={ch.name} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-3 shrink-0 ${ch.platform === 'instagram' ? 'ring-pink-100' : 'ring-red-100'}`} />
+                      <img src={ch.thumbnail} alt={ch.name} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover ring-3 shrink-0 ${ch.platform === 'instagram' ? 'ring-pink-500/20' : 'ring-red-500/20'}`} />
                     ) : (
                       <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full ${cfg.bgColor} flex items-center justify-center shrink-0`}>
                         <PIcon size={32} className={cfg.textColor} />
@@ -927,30 +927,30 @@ export default function Analytics() {
                     ); })()}
                     <div className="flex-1 min-w-0 text-center sm:text-left">
                       <div className="flex items-center justify-center sm:justify-start gap-2 mb-1 flex-wrap">
-                        <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{ch.name}</h2>
+                        <h2 className="text-lg sm:text-xl font-bold text-white truncate">{ch.name}</h2>
                         {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const PIcon = cfg.icon; return <PIcon size={18} className={cfg.textColor} />; })()}
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-medium">우리 채널</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 font-medium">우리 채널</span>
                       </div>
                       {ch.handle && <p className="text-sm text-gray-400 mb-2">{ch.handle}</p>}
-                      <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500 flex-wrap">
-                        <span className="flex items-center gap-1"><Users size={13} /> 구독자 <strong className="text-gray-900">{formatNumber(stats.subscribers || 0)}</strong></span>
-                        <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-gray-900">{formatNumber(stats.totalViews || 0)}</strong></span>
-                        <span className="flex items-center gap-1"><Video size={13} /> 영상 <strong className="text-gray-900">{formatNumber(stats.videoCount || 0)}</strong></span>
+                      <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400 flex-wrap">
+                        <span className="flex items-center gap-1"><Users size={13} /> 구독자 <strong className="text-white">{formatNumber(stats.subscribers || 0)}</strong></span>
+                        <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-white">{formatNumber(stats.totalViews || 0)}</strong></span>
+                        <span className="flex items-center gap-1"><Video size={13} /> 영상 <strong className="text-white">{formatNumber(stats.videoCount || 0)}</strong></span>
                       </div>
                     </div>
                   </div>
                   {/* 주요 KPI 3개 — 크게 */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-3">
                     {[
-                      { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-50' },
-                      { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
-                      { label: '인게이지먼트', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
+                      { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-500/10' },
+                      { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                      { label: '인게이지먼트', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-500/10' },
                     ].map((kpi) => (
-                      <div key={kpi.label} className="text-center p-4 rounded-xl border border-gray-100 bg-gray-50/30">
+                      <div key={kpi.label} className="text-center p-4 rounded-xl border border-surface-700 bg-surface-700/30">
                         <div className={`inline-flex p-2 rounded-lg ${kpi.bg} mb-2`}>
                           <kpi.icon size={18} className={kpi.color} />
                         </div>
-                        <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+                        <p className="text-2xl font-bold text-white">{kpi.value}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{kpi.label}</p>
                       </div>
                     ))}
@@ -958,15 +958,15 @@ export default function Analytics() {
                   {/* 보조 KPI 3개 — 작게 */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
-                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
-                      { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
-                      { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
+                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                      { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-500/10' },
+                      { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-500/10' },
                     ].map((kpi) => (
-                      <div key={kpi.label} className="text-center p-3 rounded-lg border border-gray-50">
+                      <div key={kpi.label} className="text-center p-3 rounded-lg border border-surface-700">
                         <div className={`inline-flex p-1.5 rounded-lg ${kpi.bg} mb-1.5`}>
                           <kpi.icon size={14} className={kpi.color} />
                         </div>
-                        <p className="text-lg font-bold text-gray-900">{kpi.value}</p>
+                        <p className="text-lg font-bold text-white">{kpi.value}</p>
                         <p className="text-[10px] text-gray-400">{kpi.label}</p>
                       </div>
                     ))}
@@ -975,31 +975,31 @@ export default function Analytics() {
 
                 {/* 영상 성과 상세 분석 */}
                 {chVideos.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                  <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
+                    <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                       <Activity size={15} className="text-green-500" />
                       최근 영상 성과 분석 ({chVideos.length}개)
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
-                      <div className="text-center p-3 bg-blue-50 rounded-lg">
+                      <div className="text-center p-3 bg-blue-500/10 rounded-lg">
                         <p className="text-[10px] text-blue-500 mb-1">평균 조회수</p>
-                        <p className="text-base font-bold text-blue-700">{formatNumber(avgViews)}</p>
+                        <p className="text-base font-bold text-blue-400">{formatNumber(avgViews)}</p>
                       </div>
-                      <div className="text-center p-3 bg-pink-50 rounded-lg">
+                      <div className="text-center p-3 bg-pink-500/10 rounded-lg">
                         <p className="text-[10px] text-pink-500 mb-1">평균 좋아요</p>
-                        <p className="text-base font-bold text-pink-700">{formatNumber(avgLikes)}</p>
+                        <p className="text-base font-bold text-pink-400">{formatNumber(avgLikes)}</p>
                       </div>
-                      <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                        <p className="text-[10px] text-indigo-500 mb-1">평균 댓글</p>
-                        <p className="text-base font-bold text-indigo-700">{formatNumber(avgComments)}</p>
+                      <div className="text-center p-3 bg-brand-500/10 rounded-lg">
+                        <p className="text-[10px] text-brand-400 mb-1">평균 댓글</p>
+                        <p className="text-base font-bold text-brand-400">{formatNumber(avgComments)}</p>
                       </div>
-                      <div className="text-center p-3 bg-green-50 rounded-lg">
+                      <div className="text-center p-3 bg-green-500/10 rounded-lg">
                         <p className="text-[10px] text-green-500 mb-1">평균 좋아요율</p>
-                        <p className="text-base font-bold text-green-700">{avgLikeRatio.toFixed(2)}%</p>
+                        <p className="text-base font-bold text-green-400">{avgLikeRatio.toFixed(2)}%</p>
                       </div>
-                      <div className="text-center p-3 bg-amber-50 rounded-lg">
+                      <div className="text-center p-3 bg-amber-500/10 rounded-lg">
                         <p className="text-[10px] text-amber-500 mb-1">평균 댓글율</p>
-                        <p className="text-base font-bold text-amber-700">{avgCommentRatio.toFixed(3)}%</p>
+                        <p className="text-base font-bold text-amber-400">{avgCommentRatio.toFixed(3)}%</p>
                       </div>
                     </div>
 
@@ -1007,7 +1007,7 @@ export default function Analytics() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="bg-gray-50 text-gray-500 text-[11px]">
+                          <tr className="bg-surface-700 text-gray-400 text-[11px]">
                             <th className="text-left px-3 py-2.5 font-medium w-8">#</th>
                             <th className="text-left px-3 py-2.5 font-medium">영상</th>
                             <th className="text-right px-3 py-2.5 font-medium">조회수</th>
@@ -1022,25 +1022,25 @@ export default function Analytics() {
                           {[...chVideos]
                             .sort((a, b) => b.engagementRate - a.engagementRate)
                             .map((v, i) => (
-                              <tr key={v.video_id || v.videoId || i} className="border-t border-gray-50 hover:bg-gray-50/50">
+                              <tr key={v.video_id || v.videoId || i} className="border-t border-surface-700 hover:bg-white/5">
                                 <td className="px-3 py-2.5 text-gray-400 text-xs">{i + 1}</td>
                                 <td className="px-3 py-2.5">
                                   <a
                                     href={PLATFORM_CONFIG[v.platform || 'youtube'].getLink(v)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-center gap-2 hover:text-indigo-600 transition-colors"
+                                    className="flex items-center gap-2 hover:text-brand-400 transition-colors"
                                   >
                                     {v.thumbnail && (
                                       <img src={v.thumbnail} alt="" className="w-14 h-8 rounded object-cover flex-shrink-0" />
                                     )}
-                                    <span className="text-xs font-medium text-gray-700 line-clamp-2 hover:text-indigo-600">{v.title}</span>
+                                    <span className="text-xs font-medium text-gray-300 line-clamp-2 hover:text-brand-400">{v.title}</span>
                                   </a>
                                 </td>
-                                <td className="text-right px-3 py-2.5 text-xs font-semibold text-gray-700">{formatNumber(v.views)}</td>
-                                <td className="text-right px-3 py-2.5 text-xs text-pink-600">{formatNumber(v.likes)}</td>
-                                <td className="text-right px-3 py-2.5 text-xs text-indigo-600">{formatNumber(v.comments)}</td>
-                                <td className="text-right px-3 py-2.5 text-xs text-gray-600">{v.likeRatio.toFixed(2)}%</td>
+                                <td className="text-right px-3 py-2.5 text-xs font-semibold text-gray-300">{formatNumber(v.views)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-pink-400">{formatNumber(v.likes)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-brand-400">{formatNumber(v.comments)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs text-gray-400">{v.likeRatio.toFixed(2)}%</td>
                                 <td className="text-right px-3 py-2.5"><EngagementBadge rate={v.engagementRate} /></td>
                                 <td className="text-right px-3 py-2.5 text-[11px] text-gray-400">{formatFullDate(v.published_at || v.publishedAt)}</td>
                               </tr>
@@ -1056,9 +1056,9 @@ export default function Analytics() {
 
           {/* 구독자 성장 추이 차트 */}
           {growthData.length > 1 && growthChannelNames.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
-                <TrendingUp size={15} className="text-indigo-500" />
+            <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
+              <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
+                <TrendingUp size={15} className="text-brand-400" />
                 구독자 성장 추이 (최근 30일)
               </h2>
               <ResponsiveContainer width="100%" height={280}>
@@ -1093,7 +1093,7 @@ export default function Analytics() {
           )}
 
           {growthData.length <= 1 && ownChannels.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 text-center">
+            <div className="bg-surface-800 rounded-xl shadow-sm p-6 border border-surface-700 text-center">
               <TrendingUp size={32} className="text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-400">
                 성장 추이 차트는 2일 이상 데이터가 쌓이면 표시됩니다.
@@ -1107,13 +1107,13 @@ export default function Analytics() {
           {enrichedVideos.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                  <Play size={15} className="text-indigo-500" />
+                <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-1.5">
+                  <Play size={15} className="text-brand-400" />
                   최근 콘텐츠
                 </h2>
                 <button
                   onClick={() => setActiveTab('content')}
-                  className="text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors"
+                  className="text-xs text-brand-400 hover:text-brand-400 font-medium transition-colors"
                 >
                   전체보기 &rarr;
                 </button>
@@ -1125,9 +1125,9 @@ export default function Analytics() {
                     href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+                    className="bg-surface-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
                   >
-                    <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                    <div className="aspect-video bg-surface-700 relative overflow-hidden">
                       {video.thumbnail && (
                         <img
                           src={video.thumbnail}
@@ -1137,7 +1137,7 @@ export default function Analytics() {
                       )}
                     </div>
                     <div className="p-2.5">
-                      <h3 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1.5 group-hover:text-indigo-600 transition-colors leading-snug">
+                      <h3 className="text-xs font-medium text-white line-clamp-2 mb-1.5 group-hover:text-brand-400 transition-colors leading-snug">
                         {video.title}
                       </h3>
                       <div className="flex items-center justify-between text-[11px] text-gray-400">
@@ -1156,9 +1156,9 @@ export default function Analytics() {
 
           {/* 경쟁 채널 비교 테이블 */}
           {competitorChannels.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+            <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 overflow-hidden">
+              <div className="p-4 border-b border-surface-700">
+                <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-1.5">
                   <BarChart3 size={15} className="text-blue-500" />
                   경쟁/관련 채널 비교
                 </h2>
@@ -1166,7 +1166,7 @@ export default function Analytics() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 text-gray-500 text-xs">
+                    <tr className="bg-surface-700 text-gray-400 text-xs">
                       <th className="text-left px-4 py-3 font-medium">채널</th>
                       <th className="text-right px-4 py-3 font-medium">구독자</th>
                       <th className="text-right px-4 py-3 font-medium">총 조회수</th>
@@ -1179,7 +1179,7 @@ export default function Analytics() {
                       const stats = channelStats[ch.channel_id] || {};
                       const engagement = channelEngagementMap[ch.channel_id] || 0;
                       return (
-                        <tr key={ch.id} className="border-t border-gray-50 hover:bg-gray-50/50">
+                        <tr key={ch.id} className="border-t border-surface-700 hover:bg-white/5">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               {ch.thumbnail ? (
@@ -1189,12 +1189,12 @@ export default function Analytics() {
                                   {(() => { const cfg = PLATFORM_CONFIG[ch.platform || 'youtube']; const I = cfg.icon; return <I size={12} className={cfg.textColor} />; })()}
                                 </div>
                               )}
-                              <span className="font-medium text-gray-700 truncate max-w-[160px]">{ch.name}</span>
+                              <span className="font-medium text-gray-300 truncate max-w-[160px]">{ch.name}</span>
                             </div>
                           </td>
-                          <td className="text-right px-4 py-3 font-semibold text-gray-800">{formatNumber(stats.subscribers || 0)}</td>
-                          <td className="text-right px-4 py-3 text-gray-600">{formatNumber(stats.totalViews || 0)}</td>
-                          <td className="text-right px-4 py-3 text-gray-600">{stats.videoCount || 0}</td>
+                          <td className="text-right px-4 py-3 font-semibold text-white">{formatNumber(stats.subscribers || 0)}</td>
+                          <td className="text-right px-4 py-3 text-gray-400">{formatNumber(stats.totalViews || 0)}</td>
+                          <td className="text-right px-4 py-3 text-gray-400">{stats.videoCount || 0}</td>
                           <td className="text-right px-4 py-3"><EngagementBadge rate={engagement} /></td>
                         </tr>
                       );
@@ -1207,8 +1207,8 @@ export default function Analytics() {
 
           {/* 경쟁사 벤치마킹 레이더 차트 */}
           {radarChartData && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h2 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+            <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
+              <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                 <Activity size={15} className="text-purple-500" />
                 채널 벤치마킹 비교
               </h2>
@@ -1249,9 +1249,9 @@ export default function Analytics() {
       {activeTab === 'content' && (
         <div className="space-y-6">
           {enrichedVideos.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+            <div className="bg-surface-800 rounded-xl shadow-sm p-12 text-center">
               <Play size={48} className="text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">콘텐츠 데이터가 없습니다</h3>
+              <h3 className="text-lg font-semibold text-gray-400 mb-2">콘텐츠 데이터가 없습니다</h3>
               <p className="text-sm text-gray-400">
                 채널을 등록하고 새로고침 버튼을 눌러 콘텐츠 데이터를 가져오세요.
               </p>
@@ -1259,23 +1259,23 @@ export default function Analytics() {
           ) : (
             <>
               {/* 기간 필터 */}
-              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+              <div className="bg-surface-800 rounded-xl shadow-sm p-4 border border-surface-700">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <CalendarRange size={15} className="text-gray-400" />
-                    <span className="text-xs font-medium text-gray-500">기간 설정</span>
+                    <span className="text-xs font-medium text-gray-400">기간 설정</span>
                     <input
                       type="date"
                       value={dateRange.start}
                       onChange={(e) => setDateRange((prev) => ({ ...prev, start: e.target.value }))}
-                      className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="px-2.5 py-1.5 border border-surface-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-surface-700 text-gray-300"
                     />
                     <span className="text-xs text-gray-400">~</span>
                     <input
                       type="date"
                       value={dateRange.end}
                       onChange={(e) => setDateRange((prev) => ({ ...prev, end: e.target.value }))}
-                      className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="px-2.5 py-1.5 border border-surface-700 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-surface-700 text-gray-300"
                     />
                     {(dateRange.start || dateRange.end) && (
                       <button
@@ -1321,8 +1321,8 @@ export default function Analytics() {
                           }}
                           className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                             isActive
-                              ? 'bg-indigo-100 text-indigo-700 font-medium'
-                              : 'text-gray-500 hover:bg-gray-100'
+                              ? 'bg-brand-500/15 text-brand-400 font-medium'
+                              : 'text-gray-400 hover:bg-white/5'
                           }`}
                         >
                           {preset.label}
@@ -1338,14 +1338,14 @@ export default function Analytics() {
                   </p>
                 )}
                 {/* Channel filter */}
-                <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-gray-100">
-                  <span className="text-xs font-medium text-gray-500 mr-1">채널</span>
+                <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-surface-700">
+                  <span className="text-xs font-medium text-gray-400 mr-1">채널</span>
                   <button
                     onClick={() => setSelectedChannelFilter('all')}
                     className={`px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer ${
                       selectedChannelFilter === 'all'
-                        ? 'bg-indigo-100 text-indigo-700 font-medium'
-                        : 'text-gray-500 hover:bg-gray-100'
+                        ? 'bg-brand-500/15 text-brand-400 font-medium'
+                        : 'text-gray-400 hover:bg-white/5'
                     }`}
                   >
                     전체 ({filteredByDateVideos.length})
@@ -1361,8 +1361,8 @@ export default function Analytics() {
                         onClick={() => setSelectedChannelFilter(ch.channel_id)}
                         className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer ${
                           selectedChannelFilter === ch.channel_id
-                            ? 'bg-indigo-100 text-indigo-700 font-medium'
-                            : 'text-gray-500 hover:bg-gray-100'
+                            ? 'bg-brand-500/15 text-brand-400 font-medium'
+                            : 'text-gray-400 hover:bg-white/5'
                         }`}
                       >
                         {ch.thumbnail && (
@@ -1379,19 +1379,19 @@ export default function Analytics() {
               {contentKpi && (
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                   {[
-                    { label: '분석 콘텐츠', value: `${contentKpi.videoCount}개`, icon: Video, color: 'text-purple-500', bg: 'bg-purple-50' },
-                    { label: '평균 조회수', value: formatNumber(contentKpi.avgViews), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-50' },
-                    { label: '인게이지먼트', value: `${contentKpi.avgEngagement}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-50' },
-                    { label: '평균 좋아요율', value: `${contentKpi.avgLikeRatio}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-50' },
-                    { label: '조회/구독 비율', value: `${contentKpi.viewSubRatio}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-50' },
-                    { label: '주간 게시 빈도', value: `${contentKpi.weeklyFreq}개/주`, icon: CalendarRange, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-                    { label: '총 좋아요', value: formatNumber(contentKpi.totalLikes), icon: ThumbsUp, color: 'text-red-500', bg: 'bg-red-50' },
+                    { label: '분석 콘텐츠', value: `${contentKpi.videoCount}개`, icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                    { label: '평균 조회수', value: formatNumber(contentKpi.avgViews), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                    { label: '인게이지먼트', value: `${contentKpi.avgEngagement}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-500/10' },
+                    { label: '평균 좋아요율', value: `${contentKpi.avgLikeRatio}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-500/10' },
+                    { label: '조회/구독 비율', value: `${contentKpi.viewSubRatio}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                    { label: '주간 게시 빈도', value: `${contentKpi.weeklyFreq}개/주`, icon: CalendarRange, color: 'text-brand-400', bg: 'bg-brand-500/10' },
+                    { label: '총 좋아요', value: formatNumber(contentKpi.totalLikes), icon: ThumbsUp, color: 'text-red-500', bg: 'bg-red-500/10' },
                   ].map((kpi) => (
-                    <div key={kpi.label} className="bg-white rounded-xl shadow-sm p-3 border border-gray-100 text-center">
+                    <div key={kpi.label} className="bg-surface-800 rounded-xl shadow-sm p-3 border border-surface-700 text-center">
                       <div className={`inline-flex p-1.5 rounded-lg ${kpi.bg} mb-1.5`}>
                         <kpi.icon size={13} className={kpi.color} />
                       </div>
-                      <p className="text-base font-bold text-gray-900">{kpi.value}</p>
+                      <p className="text-base font-bold text-white">{kpi.value}</p>
                       <p className="text-[10px] text-gray-400">{kpi.label}</p>
                     </div>
                   ))}
@@ -1400,12 +1400,12 @@ export default function Analytics() {
 
               {/* Top 퍼포머 + 최고 인게이지먼트 */}
               {topPerformers[0] && (
-                <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl shadow-sm p-4 border border-yellow-100">
+                <div className="bg-gradient-to-br from-yellow-500/10 to-orange-500/10 rounded-xl shadow-sm p-4 border border-yellow-500/20">
                   <div className="flex items-center gap-2 mb-2">
                     <Trophy size={16} className="text-yellow-500" />
-                    <span className="text-xs font-medium text-yellow-700">최고 인게이지먼트</span>
+                    <span className="text-xs font-medium text-yellow-400">최고 인게이지먼트</span>
                   </div>
-                  <p className="text-sm font-semibold text-gray-800 line-clamp-1">{topPerformers[0].title}</p>
+                  <p className="text-sm font-semibold text-white line-clamp-1">{topPerformers[0].title}</p>
                   <p className="text-lg font-bold text-yellow-600 mt-1">{topPerformers[0].engagementRate.toFixed(2)}%</p>
                 </div>
               )}
@@ -1413,7 +1413,7 @@ export default function Analytics() {
               {/* Top 3 퍼포머 */}
               {topPerformers.length > 0 && (
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                  <h2 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-1.5">
                     <Trophy size={15} className="text-yellow-500" />
                     Top 퍼포머 (인게이지먼트 기준)
                   </h2>
@@ -1424,12 +1424,12 @@ export default function Analytics() {
                         href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
+                        className="bg-surface-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group relative"
                       >
                         <div className="absolute top-2 left-2 z-10 w-6 h-6 rounded-full bg-yellow-400 text-white text-xs font-bold flex items-center justify-center shadow">
                           {idx + 1}
                         </div>
-                        <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                        <div className="aspect-video bg-surface-700 relative overflow-hidden">
                           {video.thumbnail && (
                             <img
                               src={video.thumbnail}
@@ -1439,10 +1439,10 @@ export default function Analytics() {
                           )}
                         </div>
                         <div className="p-3">
-                          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
+                          <h3 className="text-sm font-medium text-white line-clamp-2 mb-2 group-hover:text-brand-400 transition-colors leading-snug">
                             {video.title}
                           </h3>
-                          <div className="flex items-center justify-between text-xs text-gray-500">
+                          <div className="flex items-center justify-between text-xs text-gray-400">
                             <div className="flex items-center gap-2">
                               <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
                               <EngagementBadge rate={video.engagementRate} />
@@ -1460,11 +1460,11 @@ export default function Analytics() {
               )}
 
               {/* AI 콘텐츠 분석 (인라인) */}
-              <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100">
+              <div className="bg-gradient-to-br from-brand-500/10 via-surface-800 to-purple-500/10 rounded-xl shadow-sm border border-brand-500/20">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-2">
                     <Sparkles size={16} className="text-purple-500" />
-                    <span className="text-sm font-semibold text-gray-700">AI 콘텐츠 분석</span>
+                    <span className="text-sm font-semibold text-gray-300">AI 콘텐츠 분석</span>
                     {contentKpi && (
                       <span className="text-[11px] text-gray-400">
                         ({contentKpi.videoCount}개 콘텐츠 기준)
@@ -1481,7 +1481,7 @@ export default function Analytics() {
                   </button>
                 </div>
                 {isContentAiLoading && (
-                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-indigo-600">
+                  <div className="flex items-center gap-2 pb-6 justify-center text-sm text-brand-400">
                     <Loader className="w-5 h-5 animate-spin" />
                     콘텐츠 인게이지먼트를 분석하고 방향성을 제시하고 있습니다...
                   </div>
@@ -1498,8 +1498,8 @@ export default function Analytics() {
 
               {/* 태그 분석 */}
               {tagAnalysis.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
+                  <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                     <Tag size={15} className="text-brand-500" />
                     태그 분석
                     <span className="text-xs text-gray-400 font-normal">상위 {tagAnalysis.length}개</span>
@@ -1507,14 +1507,14 @@ export default function Analytics() {
                   <div className="space-y-2">
                     {tagAnalysis.map((t) => (
                       <div key={t.tag} className="flex items-center gap-3">
-                        <span className="text-xs text-gray-600 w-32 truncate font-medium">#{t.tag}</span>
-                        <div className="flex-1 h-5 bg-gray-100 rounded-full overflow-hidden">
+                        <span className="text-xs text-gray-400 w-32 truncate font-medium">#{t.tag}</span>
+                        <div className="flex-1 h-5 bg-surface-700 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-brand-400 rounded-full transition-all"
                             style={{ width: `${(t.count / (tagAnalysis[0]?.count || 1)) * 100}%` }}
                           />
                         </div>
-                        <span className="text-xs text-gray-500 w-8 text-right">{t.count}회</span>
+                        <span className="text-xs text-gray-400 w-8 text-right">{t.count}회</span>
                         <span className="text-xs text-gray-400 w-20 text-right">
                           인게이지먼트 {t.avgEngagement.toFixed(1)}%
                         </span>
@@ -1526,8 +1526,8 @@ export default function Analytics() {
 
               {/* 댓글 분석 (자사 채널 전용) */}
               {channels.some(ch => ch.is_own && (selectedChannelFilter === 'all' || selectedChannelFilter === ch.channel_id)) && (
-                <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+                <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
+                  <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                     <MessageCircle size={15} className="text-brand-500" />
                     댓글 분석
                     <span className="text-xs text-gray-400 font-normal">(자사 채널 전용)</span>
@@ -1535,7 +1535,7 @@ export default function Analytics() {
 
                   {/* Video selector for comment analysis */}
                   <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-2">분석할 영상을 선택하세요:</p>
+                    <p className="text-xs text-gray-400 mb-2">분석할 영상을 선택하세요:</p>
                     <div className="flex flex-wrap gap-2">
                       {filteredByChannelVideos
                         .filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId))))
@@ -1547,8 +1547,8 @@ export default function Analytics() {
                             disabled={isAnalyzingComments}
                             className={`px-3 py-1.5 text-xs rounded-lg border transition-colors cursor-pointer ${
                               selectedVideoForComments?.videoId === v.videoId || selectedVideoForComments?.video_id === v.video_id
-                                ? 'bg-brand-50 border-brand-300 text-brand-700'
-                                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                                ? 'bg-brand-500/10 border-brand-500/30 text-brand-400'
+                                : 'bg-surface-700 border-surface-700 text-gray-400 hover:bg-white/5'
                             } disabled:opacity-50`}
                           >
                             {v.title?.slice(0, 30)}{v.title?.length > 30 ? '...' : ''}
@@ -1561,7 +1561,7 @@ export default function Analytics() {
                   {isAnalyzingComments && (
                     <div className="flex items-center justify-center py-8 gap-3">
                       <Loader className="w-5 h-5 animate-spin text-brand-500" />
-                      <span className="text-sm text-gray-500">댓글을 분석하고 있습니다...</span>
+                      <span className="text-sm text-gray-400">댓글을 분석하고 있습니다...</span>
                     </div>
                   )}
 
@@ -1579,7 +1579,7 @@ export default function Analytics() {
                       {commentAnalysis.analysis && (
                         <div className="prose prose-sm max-w-none">
                           <div
-                            className="text-sm text-gray-600 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-700"
+                            className="text-sm text-gray-400 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-300"
                             dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
                           />
                           <p className="text-xs text-gray-400 mt-3">
@@ -1594,8 +1594,8 @@ export default function Analytics() {
 
               {/* 게시 시간대 히트맵 */}
               {filteredByChannelVideos.length >= 3 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                  <h2 className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+                <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
+                  <h2 className="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-1.5">
                     <Clock size={15} className="text-orange-500" />
                     게시 시간대별 성과 히트맵
                   </h2>
@@ -1615,7 +1615,7 @@ export default function Analytics() {
                       {/* 히트맵 그리드 */}
                       {['월', '화', '수', '목', '금', '토', '일'].map((dayLabel, dayIdx) => (
                         <div key={dayLabel} className="flex items-center gap-0.5 mb-0.5">
-                          <span className="w-8 text-xs text-gray-500 text-right font-medium flex-shrink-0">{dayLabel}</span>
+                          <span className="w-8 text-xs text-gray-400 text-right font-medium flex-shrink-0">{dayLabel}</span>
                           <div className="flex-1 flex gap-px">
                             {postingHeatmapData.grid[dayIdx].map((cell, hourIdx) => {
                               const intensity =
@@ -1624,7 +1624,7 @@ export default function Analytics() {
                                   : 0;
                               const bg =
                                 cell.count === 0
-                                  ? 'bg-gray-50'
+                                  ? 'bg-surface-700'
                                   : intensity > 0.8
                                     ? 'bg-red-500'
                                     : intensity > 0.6
@@ -1634,7 +1634,7 @@ export default function Analytics() {
                                         : intensity > 0.2
                                           ? 'bg-red-200'
                                           : 'bg-red-100';
-                              const textColor = intensity > 0.6 ? 'text-white' : 'text-gray-600';
+                              const textColor = intensity > 0.6 ? 'text-white' : 'text-gray-400';
                               return (
                                 <div
                                   key={hourIdx}
@@ -1653,8 +1653,8 @@ export default function Analytics() {
                       {/* 범례 */}
                       <div className="flex items-center justify-end gap-1.5 mt-3 mr-1">
                         <span className="text-[10px] text-gray-400">낮음</span>
-                        {['bg-gray-50', 'bg-red-100', 'bg-red-200', 'bg-red-300', 'bg-red-400', 'bg-red-500'].map((c) => (
-                          <div key={c} className={`w-4 h-4 rounded-sm ${c} border border-gray-100`} />
+                        {['bg-surface-700', 'bg-red-100', 'bg-red-200', 'bg-red-300', 'bg-red-400', 'bg-red-500'].map((c) => (
+                          <div key={c} className={`w-4 h-4 rounded-sm ${c} border border-surface-700`} />
                         ))}
                         <span className="text-[10px] text-gray-400">높음</span>
                       </div>
@@ -1666,8 +1666,8 @@ export default function Analytics() {
               {/* 정렬 + 전체 영상 그리드 */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                    <Play size={15} className="text-indigo-500" />
+                  <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-1.5">
+                    <Play size={15} className="text-brand-400" />
                     전체 영상 성과
                   </h2>
                   <div className="flex items-center gap-1.5">
@@ -1678,8 +1678,8 @@ export default function Analytics() {
                         onClick={() => setVideoSortBy(opt.key)}
                         className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                           videoSortBy === opt.key
-                            ? 'bg-indigo-100 text-indigo-700 font-medium'
-                            : 'text-gray-500 hover:bg-gray-100'
+                            ? 'bg-brand-500/15 text-brand-400 font-medium'
+                            : 'text-gray-400 hover:bg-white/5'
                         }`}
                       >
                         {opt.label}
@@ -1694,9 +1694,9 @@ export default function Analytics() {
                       href={PLATFORM_CONFIG[video.platform || 'youtube'].getLink(video)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+                      className="bg-surface-800 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
                     >
-                      <div className="aspect-video bg-gray-100 relative overflow-hidden">
+                      <div className="aspect-video bg-surface-700 relative overflow-hidden">
                         {video.thumbnail ? (
                           <img
                             src={video.thumbnail}
@@ -1718,10 +1718,10 @@ export default function Analytics() {
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="text-sm font-medium text-gray-800 line-clamp-2 mb-2 group-hover:text-indigo-600 transition-colors leading-snug">
+                        <h3 className="text-sm font-medium text-white line-clamp-2 mb-2 group-hover:text-brand-400 transition-colors leading-snug">
                           {video.title}
                         </h3>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                        <div className="flex items-center justify-between text-xs text-gray-400 mb-1.5">
                           <div className="flex items-center gap-2.5">
                             <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
                             <span className="flex items-center gap-0.5"><ThumbsUp size={12} />{formatNumber(video.likes)}</span>
@@ -1751,10 +1751,10 @@ export default function Analytics() {
             {activeTab === 'comments' && (
         <div className="space-y-5">
           {/* 댓글 분석 메인 */}
-          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
             <div className="flex items-center gap-2 mb-1">
               <MessageCircle size={18} className="text-brand-500" />
-              <h2 className="text-base font-bold text-gray-800">YouTube 댓글 AI 분석</h2>
+              <h2 className="text-base font-bold text-white">YouTube 댓글 AI 분석</h2>
             </div>
             <p className="text-xs text-gray-400 mb-5">자사 채널 영상의 댓글을 수집하고 Claude AI로 감성 분석합니다</p>
 
@@ -1766,9 +1766,9 @@ export default function Analytics() {
               <>
                 {/* Video selector for comment analysis */}
                 <div className="mb-5">
-                  <p className="text-sm font-medium text-gray-600 mb-3">분석할 영상을 선택하세요:</p>
+                  <p className="text-sm font-medium text-gray-400 mb-3">분석할 영상을 선택하세요:</p>
                   {enrichedVideos.filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId)))).length === 0 && (
-                    <div className="text-center py-6 bg-gray-50 rounded-xl text-sm text-gray-400">
+                    <div className="text-center py-6 bg-surface-700 rounded-xl text-sm text-gray-400">
                       자사 채널 영상이 아직 로드되지 않았습니다. 채널 개요 탭에서 새로고침을 실행해주세요.
                     </div>
                   )}
@@ -1783,15 +1783,15 @@ export default function Analytics() {
                           disabled={isAnalyzingComments}
                           className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
                             (selectedVideoForComments?.videoId === (v.videoId || v.video_id) || selectedVideoForComments?.video_id === (v.video_id || v.videoId))
-                              ? 'bg-brand-50 border-brand-300 shadow-sm'
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100 hover:border-gray-300'
+                              ? 'bg-brand-500/10 border-brand-500/30 shadow-sm'
+                              : 'bg-surface-700 border-surface-700 hover:bg-white/5 hover:border-surface-700'
                           } disabled:opacity-50`}
                         >
                           {v.thumbnail && (
                             <img src={v.thumbnail} alt="" className="w-20 h-14 object-cover rounded-lg shrink-0" />
                           )}
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-gray-700 line-clamp-2 leading-snug">{v.title}</p>
+                            <p className="text-xs font-medium text-gray-300 line-clamp-2 leading-snug">{v.title}</p>
                             <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
                               <span>{formatNumber(v.views)} 조회</span>
                               <span>{formatNumber(v.comments)} 댓글</span>
@@ -1804,28 +1804,28 @@ export default function Analytics() {
 
                 {/* Analysis results */}
                 {isAnalyzingComments && (
-                  <div className="flex items-center justify-center py-12 gap-3 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-center py-12 gap-3 bg-surface-700 rounded-xl">
                     <Loader className="w-5 h-5 animate-spin text-brand-500" />
-                    <span className="text-sm text-gray-500">댓글을 수집하고 AI 분석 중입니다...</span>
+                    <span className="text-sm text-gray-400">댓글을 수집하고 AI 분석 중입니다...</span>
                   </div>
                 )}
 
                 {commentAnalysis && !isAnalyzingComments && (
                   <div className="mt-4">
                     {commentAnalysis.disabled && (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl">
+                      <div className="text-center py-8 bg-surface-700 rounded-xl">
                         <MessageCircle size={32} className="text-gray-300 mx-auto mb-2" />
                         <p className="text-sm text-gray-400">이 영상은 댓글이 비활성화되어 있습니다.</p>
                       </div>
                     )}
                     {commentAnalysis.empty && (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl">
+                      <div className="text-center py-8 bg-surface-700 rounded-xl">
                         <MessageCircle size={32} className="text-gray-300 mx-auto mb-2" />
                         <p className="text-sm text-gray-400">댓글이 없습니다.</p>
                       </div>
                     )}
                     {commentAnalysis.error && (
-                      <div className="text-center py-8 bg-red-50 rounded-xl">
+                      <div className="text-center py-8 bg-red-500/10 rounded-xl">
                         <p className="text-sm text-red-500">{commentAnalysis.error}</p>
                       </div>
                     )}
@@ -1833,13 +1833,13 @@ export default function Analytics() {
                       <div className="bg-gradient-to-br from-brand-50/50 via-white to-amber-50/30 rounded-xl border border-brand-100 p-5">
                         <div className="flex items-center gap-2 mb-3">
                           <Sparkles size={16} className="text-amber-500" />
-                          <h3 className="text-sm font-bold text-gray-800">AI 감성 분석 결과</h3>
+                          <h3 className="text-sm font-bold text-white">AI 감성 분석 결과</h3>
                           <span className="text-[11px] text-gray-400 ml-auto">
                             {commentAnalysis.analyzedCount}개 댓글 분석 · {commentAnalysis.generatedAt ? new Date(commentAnalysis.generatedAt).toLocaleString('ko-KR') : ''}
                           </span>
                         </div>
                         <div
-                          className="prose-sm max-w-none text-sm text-gray-600 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-gray-800 [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-700"
+                          className="prose-sm max-w-none text-sm text-gray-400 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-300"
                           dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
                         />
                       </div>
@@ -1854,7 +1854,7 @@ export default function Analytics() {
 
       {activeTab === 'monitoring' && (
         <div>
-          <div className="bg-white rounded-xl shadow-sm p-5 border border-gray-100">
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
             <div className="flex items-center gap-2 mb-3">
               <input
                 type="text"
@@ -1862,7 +1862,7 @@ export default function Analytics() {
                 onChange={(e) => setNewKeywordInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddKeyword()}
                 placeholder="모니터링 키워드 입력..."
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-surface-700 text-gray-300"
               />
               <button
                 onClick={handleAddKeyword}
@@ -1877,7 +1877,7 @@ export default function Analytics() {
                 {monitoringKeywords.map((kw) => (
                   <span
                     key={kw.id}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-400 text-xs font-medium rounded-full"
                   >
                     <Tag size={11} />
                     {kw.keyword}
@@ -1908,13 +1908,13 @@ export default function Analytics() {
                     href={result.videoId ? `https://youtube.com/watch?v=${result.videoId}` : '#'}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                    className="flex gap-3 p-3 rounded-lg border border-surface-700 hover:bg-white/5 transition-colors"
                   >
                     {result.thumbnail && (
                       <img src={result.thumbnail} alt="" className="w-24 h-16 rounded object-cover flex-shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-medium text-gray-800 line-clamp-2 mb-1">{result.title}</h4>
+                      <h4 className="text-xs font-medium text-white line-clamp-2 mb-1">{result.title}</h4>
                       <p className="text-[11px] text-gray-400">{result.channelTitle}</p>
                       <p className="text-[11px] text-gray-400">{formatFullDate(result.publishedAt)}</p>
                     </div>
@@ -1941,7 +1941,7 @@ export default function Analytics() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-purple-500" />
-              <h2 className="text-base font-semibold text-gray-800">AI SNS 인사이트</h2>
+              <h2 className="text-base font-semibold text-white">AI SNS 인사이트</h2>
               {insightGeneratedAt && (
                 <span className="text-xs text-gray-400 ml-2">마지막 생성: {insightGeneratedAt}</span>
               )}
@@ -1956,9 +1956,9 @@ export default function Analytics() {
             </button>
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100 p-6">
+          <div className="bg-gradient-to-br from-brand-500/10 via-surface-800 to-purple-500/10 rounded-xl shadow-sm border border-brand-500/20 p-6">
             {isGeneratingInsight ? (
-              <div className="flex items-center gap-2 py-12 justify-center text-sm text-indigo-600">
+              <div className="flex items-center gap-2 py-12 justify-center text-sm text-brand-400">
                 <Loader className="w-5 h-5 animate-spin" />
                 Claude AI가 채널 데이터, 영상 성과, 인게이지먼트를 분석하고 있습니다...
               </div>
@@ -1980,22 +1980,22 @@ export default function Analytics() {
 
           {/* 분석 데이터 요약 */}
           {(ownChannels.length > 0 || enrichedVideos.length > 0) && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <h3 className="text-xs font-semibold text-gray-500 mb-3">AI에게 전달되는 분석 데이터</h3>
-              <div className="flex flex-wrap gap-3 text-xs text-gray-600">
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+            <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-4">
+              <h3 className="text-xs font-semibold text-gray-400 mb-3">AI에게 전달되는 분석 데이터</h3>
+              <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-surface-700 rounded-full">
                   <Users size={12} className="text-red-500" />
                   우리 채널 {ownChannels.length}개
                 </span>
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-surface-700 rounded-full">
                   <BarChart3 size={12} className="text-blue-500" />
                   경쟁 채널 {competitorChannels.length}개
                 </span>
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-surface-700 rounded-full">
                   <Video size={12} className="text-purple-500" />
                   최근 콘텐츠 {Math.min(enrichedVideos.length, 12)}개
                 </span>
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-gray-50 rounded-full">
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-surface-700 rounded-full">
                   <Activity size={12} className="text-green-500" />
                   인게이지먼트 데이터 포함
                 </span>
@@ -2012,19 +2012,19 @@ export default function Analytics() {
           onClick={() => setShowChannelModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto"
+            className="bg-surface-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">채널 관리</h2>
-                <button onClick={() => setShowChannelModal(false)} className="p-1 rounded-full hover:bg-gray-100 text-gray-400">
+                <h2 className="text-lg font-bold text-white">채널 관리</h2>
+                <button onClick={() => setShowChannelModal(false)} className="p-1 rounded-full hover:bg-white/5 text-gray-400">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">채널 추가</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">채널 추가</label>
                 {/* 플랫폼 선택 */}
                 <div className="flex gap-2 mb-3">
                   {['youtube', 'instagram'].map((p) => {
@@ -2037,7 +2037,7 @@ export default function Analytics() {
                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                           newChannelPlatform === p
                             ? `${cfg.bgColor} ${cfg.textColor} ${cfg.borderColor} shadow-sm`
-                            : 'bg-gray-50 text-gray-400 border-gray-200 hover:bg-gray-100'
+                            : 'bg-surface-700 text-gray-400 border-surface-700 hover:bg-white/5'
                         }`}
                       >
                         <Icon size={16} />
@@ -2052,7 +2052,7 @@ export default function Analytics() {
                   onChange={(e) => setNewChannelInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddChannel()}
                   placeholder={PLATFORM_CONFIG[newChannelPlatform].idPlaceholder}
-                  className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 ${PLATFORM_CONFIG[newChannelPlatform].ringColor} focus:border-transparent mb-3`}
+                  className={`w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 ${PLATFORM_CONFIG[newChannelPlatform].ringColor} focus:border-transparent mb-3 bg-surface-700 text-gray-300`}
                 />
                 <div className="flex items-center gap-4 mb-3">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -2062,7 +2062,7 @@ export default function Analytics() {
                       onChange={() => setNewChannelIsOwn(true)}
                       className="text-red-500 focus:ring-red-500"
                     />
-                    <span className="text-sm text-gray-700">우리 채널</span>
+                    <span className="text-sm text-gray-300">우리 채널</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -2071,7 +2071,7 @@ export default function Analytics() {
                       onChange={() => setNewChannelIsOwn(false)}
                       className="text-blue-500 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700">경쟁사 / 관련 채널</span>
+                    <span className="text-sm text-gray-300">경쟁사 / 관련 채널</span>
                   </label>
                 </div>
                 <button
@@ -2099,13 +2099,13 @@ export default function Analytics() {
 
               {channels.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-600 mb-3">등록된 채널 ({channels.length})</h3>
+                  <h3 className="text-sm font-semibold text-gray-400 mb-3">등록된 채널 ({channels.length})</h3>
                   <div className="space-y-2">
                     {channels.map((ch) => {
                       const chCfg = PLATFORM_CONFIG[ch.platform || 'youtube'];
                       const ChIcon = chCfg.icon;
                       return (
-                        <div key={ch.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
+                        <div key={ch.id} className="flex items-center gap-3 p-3 rounded-lg border border-surface-700 bg-surface-700">
                           {ch.thumbnail ? (
                             <img src={ch.thumbnail} alt={ch.name} className="w-8 h-8 rounded-full object-cover" />
                           ) : (
@@ -2116,20 +2116,20 @@ export default function Analytics() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <ChIcon size={12} className={chCfg.textColor} />
-                              <p className="text-sm font-medium text-gray-700 truncate">{ch.name}</p>
+                              <p className="text-sm font-medium text-gray-300 truncate">{ch.name}</p>
                             </div>
                             <p className="text-[11px] text-gray-400">{ch.handle || ch.channel_id}</p>
                           </div>
                           <span
                             className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                              ch.is_own ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+                              ch.is_own ? 'bg-red-500/10 text-red-600' : 'bg-blue-500/10 text-blue-600'
                             }`}
                           >
                             {ch.is_own ? '우리' : '경쟁'}
                           </span>
                           <button
                             onClick={() => handleRemoveChannel(ch.id)}
-                            className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors"
+                            className="p-1 rounded hover:bg-red-500/10 text-gray-300 hover:text-red-500 transition-colors"
                           >
                             <X size={14} />
                           </button>
@@ -2140,17 +2140,17 @@ export default function Analytics() {
                 </div>
               )}
 
-              <div className="mt-5 p-3 bg-amber-50 rounded-lg">
+              <div className="mt-5 p-3 bg-amber-500/10 rounded-lg">
                 {newChannelPlatform === 'youtube' ? (
-                  <p className="text-xs text-amber-700 leading-relaxed">
+                  <p className="text-xs text-amber-400 leading-relaxed">
                     <strong>YouTube 채널 ID 찾는 방법:</strong>
                     <br />
-                    채널 페이지 URL에서 <code className="bg-amber-100 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.
+                    채널 페이지 URL에서 <code className="bg-amber-500/15 px-1 rounded">/channel/UCxxxxxxx</code> 부분을 복사하세요.
                     <br />
-                    또는 <code className="bg-amber-100 px-1 rounded">@handle</code> 형식도 지원합니다.
+                    또는 <code className="bg-amber-500/15 px-1 rounded">@handle</code> 형식도 지원합니다.
                   </p>
                 ) : (
-                  <p className="text-xs text-amber-700 leading-relaxed">
+                  <p className="text-xs text-amber-400 leading-relaxed">
                     <strong>Instagram Business Account ID 찾는 방법:</strong>
                     <br />
                     Meta Business Suite → 설정 → 비즈니스 자산 → Instagram 계정에서 확인할 수 있습니다.

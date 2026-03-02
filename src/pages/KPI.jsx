@@ -22,32 +22,32 @@ import { useApp } from '../context/AppContext';
 
 // ---- 카테고리 설정 ----
 const CATEGORIES = {
-  sns_growth: { label: 'SNS 성장', icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' },
-  engagement: { label: '인게이지먼트', icon: BarChart3, color: 'text-green-500', bg: 'bg-green-50', border: 'border-green-200' },
-  content: { label: '콘텐츠', icon: Target, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' },
-  sponsorship: { label: '스폰서십', icon: Handshake, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' },
-  event: { label: '이벤트/티켓', icon: Ticket, color: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-200' },
+  sns_growth: { label: 'SNS 성장', icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-500/10', border: 'border-blue-200' },
+  engagement: { label: '인게이지먼트', icon: BarChart3, color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-200' },
+  content: { label: '콘텐츠', icon: Target, color: 'text-purple-500', bg: 'bg-purple-500/10', border: 'border-purple-200' },
+  sponsorship: { label: '스폰서십', icon: Handshake, color: 'text-orange-500', bg: 'bg-orange-500/10', border: 'border-orange-200' },
+  event: { label: '이벤트/티켓', icon: Ticket, color: 'text-pink-500', bg: 'bg-pink-500/10', border: 'border-pink-200' },
 };
 
 const STATUS_CONFIG = {
-  active: { label: '진행 중', icon: Target, color: 'text-blue-600', bg: 'bg-blue-50' },
-  completed: { label: '달성', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
-  paused: { label: '보류', icon: Pause, color: 'text-gray-500', bg: 'bg-gray-50' },
+  active: { label: '진행 중', icon: Target, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  completed: { label: '달성', icon: CheckCircle2, color: 'text-green-400', bg: 'bg-green-500/10' },
+  paused: { label: '보류', icon: Pause, color: 'text-gray-400', bg: 'bg-surface-700' },
 };
 
 function renderInsightText(text) {
   return text
     .split('\n')
     .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-slate-800 mt-4 mb-2">${line.slice(3)}</h3>`;
+      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
+      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2">${line.slice(3)}</h3>`;
       if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-        return `<li class="text-sm text-slate-600 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
+        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
+        return `<li class="text-sm text-gray-400 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
       }
       if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-700">$1</strong>');
-      return `<p class="text-sm text-slate-600 leading-relaxed mb-1">${content}</p>`;
+      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
+      return `<p class="text-sm text-gray-400 leading-relaxed mb-1">${content}</p>`;
     })
     .join('');
 }
@@ -203,7 +203,7 @@ export default function KPI() {
 
   if (!loaded) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
+      <div className="flex items-center justify-center h-64 text-gray-500">
         <Loader className="w-6 h-6 animate-spin mr-2" />
         데이터를 불러오는 중...
       </div>
@@ -215,8 +215,8 @@ export default function KPI() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">KPI 관리</h1>
-          <p className="text-sm text-gray-500 mt-1">마케팅 목표와 진행 현황을 관리합니다</p>
+          <h1 className="text-2xl font-bold text-white">KPI 관리</h1>
+          <p className="text-sm text-gray-400 mt-1">마케팅 목표와 진행 현황을 관리합니다</p>
         </div>
         <button
           onClick={openCreate}
@@ -230,19 +230,19 @@ export default function KPI() {
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: '전체 KPI', value: stats.total, icon: Target, color: 'text-blue-500', bg: 'bg-blue-50' },
-          { label: '달성 완료', value: stats.completed, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
-          { label: '평균 달성률', value: `${stats.avgProgress}%`, icon: TrendingUp, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-          { label: '위험 (마감임박)', value: stats.atRisk, icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-50' },
+          { label: '전체 KPI', value: stats.total, icon: Target, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+          { label: '달성 완료', value: stats.completed, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
+          { label: '평균 달성률', value: `${stats.avgProgress}%`, icon: TrendingUp, color: 'text-brand-400', bg: 'bg-brand-500/10' },
+          { label: '위험 (마감임박)', value: stats.atRisk, icon: AlertTriangle, color: 'text-orange-500', bg: 'bg-orange-500/10' },
         ].map((card) => (
-          <div key={card.label} className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+          <div key={card.label} className="bg-surface-800 rounded-xl shadow-sm p-4 border border-surface-700">
             <div className="flex items-center gap-2 mb-2">
               <div className={`p-1.5 rounded-lg ${card.bg}`}>
                 <card.icon size={14} className={card.color} />
               </div>
-              <span className="text-xs font-medium text-gray-500">{card.label}</span>
+              <span className="text-xs font-medium text-gray-400">{card.label}</span>
             </div>
-            <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+            <p className="text-2xl font-bold text-white">{card.value}</p>
           </div>
         ))}
       </div>
@@ -252,7 +252,7 @@ export default function KPI() {
         <button
           onClick={() => setFilter('all')}
           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-            filter === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            filter === 'all' ? 'bg-white text-gray-900' : 'bg-surface-700 text-gray-400 hover:bg-surface-700'
           }`}
         >
           전체
@@ -264,7 +264,7 @@ export default function KPI() {
               key={key}
               onClick={() => setFilter(key)}
               className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                filter === key ? `${cfg.bg} ${cfg.color} ${cfg.border} border` : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                filter === key ? `${cfg.bg} ${cfg.color} ${cfg.border} border` : 'bg-surface-700 text-gray-400 hover:bg-surface-700'
               }`}
             >
               <Icon size={12} />
@@ -276,9 +276,9 @@ export default function KPI() {
 
       {/* KPI 리스트 */}
       {filteredKpis.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-          <Target size={48} className="text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-600 mb-2">
+        <div className="bg-surface-800 rounded-xl shadow-sm p-12 text-center">
+          <Target size={48} className="text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-400 mb-2">
             {kpis.length === 0 ? 'KPI를 추가해보세요' : '해당 카테고리에 KPI가 없습니다'}
           </h3>
           <p className="text-sm text-gray-400">
@@ -296,14 +296,14 @@ export default function KPI() {
             const CatIcon = cat.icon;
 
             return (
-              <div key={kpi.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+              <div key={kpi.id} className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`p-2 rounded-lg ${cat.bg} shrink-0`}>
                       <CatIcon size={16} className={cat.color} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-800 truncate">{kpi.title}</h3>
+                      <h3 className="text-sm font-semibold text-white truncate">{kpi.title}</h3>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${cat.bg} ${cat.color}`}>
                           {cat.label}
@@ -323,13 +323,13 @@ export default function KPI() {
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => openEdit(kpi)}
-                      className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-gray-200 transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => handleDelete(kpi.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -338,7 +338,7 @@ export default function KPI() {
 
                 {/* 진행률 바 */}
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                  <div className="flex-1 bg-surface-700 rounded-full h-2.5 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         progress >= 100 ? 'bg-green-500' : progress >= 70 ? 'bg-blue-500' : progress >= 40 ? 'bg-yellow-500' : 'bg-red-400'
@@ -347,7 +347,7 @@ export default function KPI() {
                     />
                   </div>
                   <div className="text-right shrink-0 w-28">
-                    <span className="text-sm font-bold text-gray-800">{progress.toFixed(0)}%</span>
+                    <span className="text-sm font-bold text-white">{progress.toFixed(0)}%</span>
                     <span className="text-[11px] text-gray-400 ml-1.5">
                       {kpi.current_value}{kpi.unit} / {kpi.target_value}{kpi.unit}
                     </span>
@@ -365,11 +365,11 @@ export default function KPI() {
 
       {/* AI KPI 분석 */}
       {kpis.length > 0 && (
-        <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 rounded-xl shadow-sm border border-indigo-100">
+        <div className="bg-gradient-to-br from-brand-500/10 via-surface-800 to-purple-500/10 rounded-xl shadow-sm border border-brand-500/20">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-2">
               <Sparkles size={16} className="text-purple-500" />
-              <span className="text-sm font-semibold text-gray-700">AI KPI 분석</span>
+              <span className="text-sm font-semibold text-gray-300">AI KPI 분석</span>
             </div>
             <button
               onClick={handleAiAnalysis}
@@ -381,7 +381,7 @@ export default function KPI() {
             </button>
           </div>
           {aiLoading && (
-            <div className="flex items-center gap-2 pb-6 justify-center text-sm text-indigo-600">
+            <div className="flex items-center gap-2 pb-6 justify-center text-sm text-brand-400">
               <Loader className="w-5 h-5 animate-spin" />
               KPI 달성률을 분석하고 있습니다...
             </div>
@@ -404,38 +404,38 @@ export default function KPI() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
+            className="bg-surface-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">
+                <h2 className="text-lg font-bold text-white">
                   {editingKpi ? 'KPI 수정' : '새 KPI 추가'}
                 </h2>
-                <button onClick={() => setShowModal(false)} className="p-1 rounded-full hover:bg-gray-100 text-gray-400">
+                <button onClick={() => setShowModal(false)} className="p-1 rounded-full hover:bg-white/5 text-gray-400">
                   <X size={20} />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">KPI 제목</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">KPI 제목</label>
                   <input
                     type="text"
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     placeholder="예: 유튜브 구독자 15만 달성"
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
                     <select
                       value={form.category}
                       onChange={(e) => setForm({ ...form, category: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     >
                       {Object.entries(CATEGORIES).map(([key, cfg]) => (
                         <option key={key} value={key}>{cfg.label}</option>
@@ -443,11 +443,11 @@ export default function KPI() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">상태</label>
                     <select
                       value={form.status}
                       onChange={(e) => setForm({ ...form, status: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     >
                       {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                         <option key={key} value={key}>{cfg.label}</option>
@@ -458,64 +458,64 @@ export default function KPI() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">목표값</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">목표값</label>
                     <input
                       type="number"
                       value={form.target_value}
                       onChange={(e) => setForm({ ...form, target_value: e.target.value })}
                       placeholder="150000"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">현재값</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">현재값</label>
                     <input
                       type="number"
                       value={form.current_value}
                       onChange={(e) => setForm({ ...form, current_value: e.target.value })}
                       placeholder="128000"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">단위</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">단위</label>
                     <input
                       type="text"
                       value={form.unit}
                       onChange={(e) => setForm({ ...form, unit: e.target.value })}
                       placeholder="명, %, 건 등"
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">시작일</label>
                     <input
                       type="date"
                       value={form.period_start}
                       onChange={(e) => setForm({ ...form, period_start: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">종료일</label>
                     <input
                       type="date"
                       value={form.period_end}
                       onChange={(e) => setForm({ ...form, period_end: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">담당자</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">담당자</label>
                   <select
                     value={form.created_by}
                     onChange={(e) => setForm({ ...form, created_by: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
                     <option value="">선택 안함</option>
                     {members.map((m) => (
@@ -525,13 +525,13 @@ export default function KPI() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">메모</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">메모</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     placeholder="KPI에 대한 참고 사항"
                     rows={2}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                   />
                 </div>
 
