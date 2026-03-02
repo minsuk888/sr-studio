@@ -190,38 +190,56 @@ export default function Tasks() {
     );
   };
 
-  // ---------- task card (kanban) ----------
+  // ---------- task card (kanban — compact) ----------
   const TaskCard = ({ task }) => {
     const member = getMember(task.assignee);
+    const progressColor =
+      task.progress >= 100 ? 'bg-emerald-500' : task.progress >= 50 ? 'bg-blue-500' : task.progress > 0 ? 'bg-amber-500' : 'bg-gray-600';
     return (
       <div
         draggable
         onDragStart={(e) => handleDragStart(e, task.id)}
         onDragEnd={handleDragEnd}
-        className="group bg-surface-800 rounded-xl shadow-sm p-4 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow border border-surface-700"
+        className="group flex items-center gap-2.5 bg-surface-800 rounded-lg px-3 py-2 cursor-grab active:cursor-grabbing hover:bg-surface-750 transition-colors border border-surface-700"
       >
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <h4 className="text-sm font-semibold text-white leading-snug">{task.title}</h4>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
-              <Pencil className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+        {/* progress indicator dot */}
+        <div className={`w-1.5 h-8 rounded-full shrink-0 ${progressColor}`} style={{ opacity: task.progress === 0 ? 0.3 : 1 }} />
+        {/* main content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h4 className="text-[13px] font-medium text-white truncate">{task.title}</h4>
+            <PriorityBadge priority={task.priority} />
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+            {member && (
+              <span className="flex items-center gap-1">
+                <span className="text-xs leading-none">{member.avatar}</span>
+                {member.name}
+              </span>
+            )}
+            {task.deadline && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span>{task.deadline}</span>
+              </>
+            )}
+            {task.progress > 0 && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className={task.progress >= 100 ? 'text-emerald-400' : ''}>{task.progress}%</span>
+              </>
+            )}
           </div>
         </div>
-        {member && (
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-base leading-none">{member.avatar}</span>
-            <span className="text-xs text-gray-400">{member.name}</span>
-          </div>
-        )}
-        <div className="flex items-center justify-between mb-3">
-          <PriorityBadge priority={task.priority} />
-          {task.deadline && <span className="text-xs text-gray-500">{task.deadline}</span>}
+        {/* actions */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button onClick={() => openEditModal(task)} className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
+            <Pencil className="w-3 h-3" />
+          </button>
+          <button onClick={() => handleDeleteTask(task)} className="p-1 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
+            <Trash2 className="w-3 h-3" />
+          </button>
         </div>
-        <ProgressBar value={task.progress} />
       </div>
     );
   };
@@ -238,21 +256,24 @@ export default function Tasks() {
         onDragOver={(e) => handleDragOver(e, status)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, status)}
-        className={`flex-1 min-w-[280px] min-h-[500px] bg-surface-700 rounded-xl p-4 transition-colors ${
-          isDragOver ? 'ring-2 ring-brand-400 bg-brand-50/30' : ''
+        className={`flex-1 min-w-[260px] transition-colors ${
+          isDragOver ? 'ring-2 ring-brand-400 rounded-xl' : ''
         }`}
       >
-        <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-4 ${cfg.headerColor}`}>
-          <Icon className={`w-4 h-4 ${cfg.textColor}`} />
-          <span className={`text-sm font-semibold ${cfg.textColor}`}>{cfg.label}</span>
-          <span className={`ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold ${cfg.color} ${cfg.textColor}`}>
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg mb-2 ${cfg.headerColor}`}>
+          <Icon className={`w-3.5 h-3.5 ${cfg.textColor}`} />
+          <span className={`text-xs font-semibold ${cfg.textColor}`}>{cfg.label}</span>
+          <span className={`ml-auto inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold ${cfg.color} ${cfg.textColor}`}>
             {columnTasks.length}
           </span>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
           {columnTasks.map((task) => (
             <TaskCard key={task.id} task={task} />
           ))}
+          {columnTasks.length === 0 && (
+            <div className="text-center text-xs text-gray-600 py-6">업무 없음</div>
+          )}
         </div>
       </div>
     );
@@ -452,7 +473,7 @@ export default function Tasks() {
 
       {/* board / list */}
       {viewMode === 'kanban' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4">
           <KanbanColumn status="todo" />
           <KanbanColumn status="in-progress" />
           <KanbanColumn status="done" />
