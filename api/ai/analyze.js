@@ -26,20 +26,36 @@ export default async function handler(req, res) {
       news: '당신은 슈퍼레이스 마케팅 팀의 뉴스/트렌드 분석가입니다. 뉴스를 분석하고 마케팅 인사이트를 제공합니다.',
     };
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 2048,
-        system: systemPrompts[feature] || systemPrompts.dashboard,
-        messages: [{ role: 'user', content: `${context}\n\n${prompt}` }],
-      }),
+    const requestBody = JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 2048,
+      system: systemPrompts[feature] || systemPrompts.dashboard,
+      messages: [{ role: 'user', content: `${context}\n\n${prompt}` }],
     });
+
+    // 재시도 로직 (529 overloaded 대응)
+    let response;
+    const MAX_RETRIES = 2;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: requestBody,
+      });
+
+      if (response.ok || (response.status !== 529 && response.status !== 503)) break;
+
+      // 529/503: 잠시 대기 후 재시도
+      if (attempt < MAX_RETRIES) {
+        const delay = (attempt + 1) * 1500; // 1.5초, 3초
+        await new Promise((r) => setTimeout(r, delay));
+        console.log(`Claude API 재시도 ${attempt + 1}/${MAX_RETRIES} (status: ${response.status})`);
+      }
+    }
 
     if (!response.ok) {
       const errText = await response.text();

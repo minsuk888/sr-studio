@@ -30,6 +30,22 @@ const priorityConfig = {
   low: { label: '낮음', className: 'bg-blue-500/10 text-blue-400' },
 };
 
+// 담당자별 고유 색상 팔레트
+const MEMBER_COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#6366f1', // indigo
+  '#e11d48', // rose
+  '#14b8a6', // teal
+  '#84cc16', // lime
+  '#a855f7', // violet
+];
+
 const emptyForm = {
   title: '',
   assignee: '',
@@ -77,12 +93,18 @@ export default function Tasks() {
       const context = `전체 업무 ${tasks.length}건\n상태별: 할 일 ${byStatus.todo}, 진행중 ${byStatus['in-progress']}, 완료 ${byStatus.done}\n우선순위별: 높음 ${byPriority.high}, 보통 ${byPriority.medium}, 낮음 ${byPriority.low}\n마감 초과: ${overdue}건\n\n팀원별 업무:\n${memberLoad}`;
       const res = await aiService.analyze('tasks', context, '현재 업무 현황을 분석하고 워크로드 균형, 우선순위 조정, 병목 구간을 파악해주세요.');
       setTasksAi(res.insight);
-    } catch { /* ignore */ }
+    } catch (err) {
+      setTasksAi(`AI 분석 실패: ${err.message}\n\n잠시 후 다시 시도해주세요.`);
+    }
     setTasksAiLoading(false);
   };
 
   // ---------- helpers ----------
   const getMember = (id) => members.find((m) => m.id === id);
+  const getMemberColor = (memberId) => {
+    const idx = members.findIndex((m) => m.id === memberId);
+    return MEMBER_COLORS[idx >= 0 ? idx % MEMBER_COLORS.length : 0];
+  };
 
   const filteredTasks = filterMember
     ? tasks.filter((t) => t.assignee === filterMember)
@@ -193,26 +215,35 @@ export default function Tasks() {
   // ---------- task card (kanban — compact) ----------
   const TaskCard = ({ task }) => {
     const member = getMember(task.assignee);
+    const memberColor = getMemberColor(task.assignee);
     const progressColor =
-      task.progress >= 100 ? 'bg-emerald-500' : task.progress >= 50 ? 'bg-blue-500' : task.progress > 0 ? 'bg-amber-500' : 'bg-gray-600';
+      task.progress >= 100 ? '#10b981' : task.progress >= 50 ? '#3b82f6' : task.progress > 0 ? '#f59e0b' : '#374151';
     return (
       <div
         draggable
         onDragStart={(e) => handleDragStart(e, task.id)}
         onDragEnd={handleDragEnd}
-        className="group flex items-center gap-2.5 bg-surface-800 rounded-lg px-3 py-2 cursor-grab active:cursor-grabbing hover:bg-surface-750 transition-colors border border-surface-700"
+        className="group bg-surface-800 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing hover:bg-surface-750 transition-colors border border-surface-700"
+        style={{ borderLeftWidth: '3px', borderLeftColor: memberColor }}
       >
-        {/* progress indicator dot */}
-        <div className={`w-1.5 h-8 rounded-full shrink-0 ${progressColor}`} style={{ opacity: task.progress === 0 ? 0.3 : 1 }} />
-        {/* main content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h4 className="text-[13px] font-medium text-white truncate">{task.title}</h4>
+        <div className="px-3 py-2">
+          {/* 제목 + 우선순위 + 액션 */}
+          <div className="flex items-center gap-1.5">
+            <h4 className="text-[13px] font-medium text-white truncate flex-1">{task.title}</h4>
             <PriorityBadge priority={task.priority} />
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1">
+              <button onClick={() => openEditModal(task)} className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button onClick={() => handleDeleteTask(task)} className="p-1 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500">
+          {/* 담당자 · 마감일 · 진행률 */}
+          <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
             {member && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 font-medium" style={{ color: memberColor }}>
                 <span className="text-xs leading-none">{member.avatar}</span>
                 {member.name}
               </span>
@@ -223,22 +254,13 @@ export default function Tasks() {
                 <span>{task.deadline}</span>
               </>
             )}
-            {task.progress > 0 && (
-              <>
-                <span className="text-gray-600">·</span>
-                <span className={task.progress >= 100 ? 'text-emerald-400' : ''}>{task.progress}%</span>
-              </>
-            )}
+            <span className="flex-1" />
+            {/* 미니 진행률 바 */}
+            <div className="w-14 h-1 bg-surface-700 rounded-full overflow-hidden shrink-0">
+              <div className="h-full rounded-full transition-all" style={{ width: `${task.progress}%`, backgroundColor: progressColor }} />
+            </div>
+            <span className="text-[10px] w-6 text-right shrink-0">{task.progress}%</span>
           </div>
-        </div>
-        {/* actions */}
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button onClick={() => openEditModal(task)} className="p-1 rounded hover:bg-white/10 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
-            <Pencil className="w-3 h-3" />
-          </button>
-          <button onClick={() => handleDeleteTask(task)} className="p-1 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
-            <Trash2 className="w-3 h-3" />
-          </button>
         </div>
       </div>
     );
