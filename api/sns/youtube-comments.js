@@ -1,12 +1,10 @@
 // Vercel Serverless Function — YouTube 댓글 수집 + AI 감성 분석 (통합)
 // POST /api/sns/youtube-comments  body: { videoId, maxResults, analyze?, videoTitle? }
 // analyze=true 이면 댓글 수집 후 Claude AI 감성 분석까지 수행
+import { handleCors } from '../_utils/security.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res)) return;
 
   const ytApiKey = process.env.YOUTUBE_API_KEY;
   if (!ytApiKey) {

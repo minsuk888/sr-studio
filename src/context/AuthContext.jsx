@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
 
@@ -23,23 +22,24 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (password) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'password')
-        .single();
+      // 서버사이드 인증 (비밀번호 해싱 + RLS 보호)
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
 
-      if (error) throw new Error('설정을 불러올 수 없습니다.');
+      const data = await res.json();
 
-      if (data.value === password) {
+      if (data.success) {
         sessionStorage.setItem(AUTH_KEY, 'true');
         setIsAuthenticated(true);
         return { success: true };
       } else {
-        return { success: false, error: '비밀번호가 일치하지 않습니다.' };
+        return { success: false, error: data.error || '비밀번호가 일치하지 않습니다.' };
       }
     } catch (err) {
-      return { success: false, error: err.message };
+      return { success: false, error: '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.' };
     } finally {
       setLoading(false);
     }
@@ -51,25 +51,19 @@ export function AuthProvider({ children }) {
   }, []);
 
   const changePassword = useCallback(async (currentPw, newPw) => {
-    // 현재 비밀번호 확인
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'password')
-      .single();
+    // 서버사이드 비밀번호 변경 (해시 처리)
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+    });
 
-    if (error) throw new Error('설정을 불러올 수 없습니다.');
-    if (data.value !== currentPw) {
-      throw new Error('현재 비밀번호가 일치하지 않습니다.');
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || '비밀번호 변경에 실패했습니다.');
     }
 
-    // 새 비밀번호 업데이트
-    const { error: updateError } = await supabase
-      .from('app_settings')
-      .update({ value: newPw })
-      .eq('key', 'password');
-
-    if (updateError) throw new Error('비밀번호 변경에 실패했습니다.');
     return true;
   }, []);
 

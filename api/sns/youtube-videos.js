@@ -1,12 +1,9 @@
 // Vercel Serverless Function — YouTube 채널 최근 영상 + 통계
 // POST /api/sns/youtube-videos  body: { channelId, maxResults, uploadsPlaylistId }
+import { handleCors } from '../_utils/security.js';
 
 export default async function handler(req, res) {
-  // CORS headers (keep existing)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res)) return;
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'YouTube API 키가 설정되지 않았습니다.' });

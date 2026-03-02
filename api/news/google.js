@@ -1,12 +1,9 @@
 // Vercel Serverless Function — 구글 뉴스 RSS 프록시
 // GET/POST /api/news/google?query=super+race
+import { handleCors } from '../_utils/security.js';
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res)) return;
 
   try {
     const { query = 'super race korea' } =

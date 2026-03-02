@@ -1,12 +1,9 @@
 // Vercel Serverless Function — Claude AI SNS 성과 인사이트
 // POST /api/sns/insights  body: { channels, videos, competitors }
+import { handleCors } from '../_utils/security.js';
 
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (handleCors(req, res)) return;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
