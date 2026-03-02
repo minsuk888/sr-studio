@@ -12,6 +12,7 @@ import {
   Newspaper,
   ArrowUpRight,
   Clock,
+  Target,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -25,6 +26,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { analyticsService } from '../services/analyticsService';
 import { newsService } from '../services/newsService';
+import { kpiService } from '../services/kpiService';
 import { aiService } from '../services/aiService';
 import AiInsightCard from '../components/AiInsightCard';
 
@@ -50,6 +52,21 @@ const statusConfig = {
   todo: { label: '예정', bg: 'bg-white/10', text: 'text-gray-400' },
   'in-progress': { label: '진행 중', bg: 'bg-blue-500/20', text: 'text-blue-400' },
   done: { label: '완료', bg: 'bg-green-500/20', text: 'text-green-400' },
+};
+
+const kpiCategoryConfig = {
+  sns_growth: { label: 'SNS', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  engagement: { label: '참여', color: 'text-green-400', bg: 'bg-green-500/20' },
+  content: { label: '콘텐츠', color: 'text-purple-400', bg: 'bg-purple-500/20' },
+  sponsorship: { label: '스폰서', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+  event: { label: '이벤트', color: 'text-pink-400', bg: 'bg-pink-500/20' },
+};
+
+const kpiStatusConfig = {
+  on_track: { label: '정상', color: 'text-green-400', bg: 'bg-green-500/20' },
+  at_risk: { label: '주의', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+  behind: { label: '지연', color: 'text-red-400', bg: 'bg-red-500/20' },
+  completed: { label: '달성', color: 'text-brand-400', bg: 'bg-brand-500/20' },
 };
 
 function deadlineBadge(deadline) {
@@ -219,6 +236,7 @@ export default function Dashboard() {
   const [snsOverview, setSnsOverview] = useState([]);
   const [ytGrowthData, setYtGrowthData] = useState([]);
   const [newsArticles, setNewsArticles] = useState([]);
+  const [kpiItems, setKpiItems] = useState([]);
   const [extraLoading, setExtraLoading] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -231,11 +249,13 @@ export default function Dashboard() {
       analyticsService.getOverview(),
       analyticsService.getYoutubeGrowthData(),
       newsService.getAll(),
+      kpiService.getAll().catch(() => []),
     ])
-      .then(([overview, growth, news]) => {
+      .then(([overview, growth, news, kpis]) => {
         setSnsOverview(overview);
         setYtGrowthData(growth);
         setNewsArticles(news);
+        setKpiItems(kpis);
       })
       .catch(console.error)
       .finally(() => setExtraLoading(false));
@@ -402,84 +422,108 @@ export default function Dashboard() {
 
       {/* BOTTOM GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* 담당자별 업무 현황 */}
-        <div className="lg:col-span-3 bg-surface-800 rounded-xl shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2">
-              <CalendarClock className="w-4.5 h-4.5 text-brand-500" />
-              담당자별 업무 현황
-            </h2>
-            <span className="text-xs text-gray-500">진행 중 · 예정</span>
+        {/* LEFT COLUMN: KPI + 담당자별 업무 */}
+        <div className="lg:col-span-3 flex flex-col gap-4">
+          {/* KPI 목표 달성 현황 */}
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2">
+                <Target className="w-4.5 h-4.5 text-brand-500" />
+                KPI 달성 현황
+              </h2>
+              <span className="text-xs text-gray-500">{kpiItems.length}개 항목</span>
+            </div>
+
+            {kpiItems.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-6">등록된 KPI가 없습니다</p>
+            ) : (
+              <div className="space-y-2.5">
+                {kpiItems.map((kpi) => {
+                  const pct = kpi.target_value > 0
+                    ? Math.round((kpi.current_value / kpi.target_value) * 100)
+                    : 0;
+                  const cat = kpiCategoryConfig[kpi.category] || kpiCategoryConfig.content;
+                  const st = kpiStatusConfig[kpi.status] || kpiStatusConfig.on_track;
+                  return (
+                    <div key={kpi.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-750 hover:bg-white/5 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${cat.bg} ${cat.color}`}>
+                            {cat.label}
+                          </span>
+                          <p className="text-sm font-medium text-gray-300 truncate">{kpi.title}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <ProgressBar value={Math.min(pct, 100)} />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-400 w-9 text-right">{pct}%</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-gray-500">
+                            {kpi.current_value?.toLocaleString()}{kpi.unit} / {kpi.target_value?.toLocaleString()}{kpi.unit}
+                          </span>
+                          {kpi.period_end && (
+                            <span className="text-[10px] text-gray-600">
+                              ~{kpi.period_end.slice(5)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${st.bg} ${st.color}`}>
+                        {st.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="space-y-4">
-            {tasksByAssignee.map(({ member, tasks: memberTasks }) => {
-              const avgProgress =
-                memberTasks.length > 0
-                  ? Math.round(memberTasks.reduce((s, t) => s + t.progress, 0) / memberTasks.length)
-                  : 0;
-              const inProgressCount = memberTasks.filter((t) => t.status === 'in-progress').length;
+          {/* 담당자별 업무 현황 (간소화) */}
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                <CalendarClock className="w-4 h-4 text-brand-500" />
+                담당자별 업무
+              </h2>
+              <span className="text-xs text-gray-500">미완료 {tasks.filter(t => t.status !== 'done').length}건</span>
+            </div>
 
-              return (
-                <div key={member.id} className="border border-surface-700 rounded-lg overflow-hidden">
-                  {/* 담당자 헤더 */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-surface-750">
-                    <span className="text-xl">{member.avatar}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-300">{member.name}</p>
-                        <span className="text-[10px] text-gray-500">{member.role}</span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-[11px] text-gray-500">
-                          업무 {memberTasks.length}건
-                        </span>
-                        {inProgressCount > 0 && (
-                          <span className="text-[11px] text-blue-500 font-medium">
-                            진행 중 {inProgressCount}건
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-medium text-gray-400">평균 진행률</p>
-                      <p className="text-lg font-bold text-gray-300">{avgProgress}%</p>
-                    </div>
+            <div className="space-y-3">
+              {tasksByAssignee.map(({ member, tasks: memberTasks }) => (
+                <div key={member.id}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-sm">{member.avatar}</span>
+                    <span className="text-xs font-semibold text-gray-400">{member.name}</span>
+                    <span className="text-[10px] text-gray-600">{memberTasks.length}건</span>
                   </div>
-
-                  {/* 업무 목록 */}
-                  <div className="divide-y divide-surface-700">
-                    {memberTasks.map((task) => {
+                  <div className="space-y-1 ml-6">
+                    {memberTasks.slice(0, 3).map((task) => {
                       const p = priorityConfig[task.priority];
-                      const s = statusConfig[task.status];
                       const d = deadlineBadge(task.deadline);
                       return (
-                        <div
-                          key={task.id}
-                          className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition-colors"
-                        >
+                        <div key={task.id} className="flex items-center gap-2">
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.dot}`} />
-                          <p className="flex-1 text-sm text-gray-400 truncate">{task.title}</p>
-                          <div className="w-20 shrink-0">
+                          <span className="flex-1 text-xs text-gray-400 truncate">{task.title}</span>
+                          <div className="w-12 shrink-0">
                             <ProgressBar value={task.progress} />
                           </div>
-                          <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${d.cls}`}>
-                            {d.label}
-                          </span>
-                          <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${s.bg} ${s.text}`}>
-                            {s.label}
-                          </span>
+                          <span className={`shrink-0 text-[10px] px-1 py-0.5 rounded ${d.cls}`}>{d.label}</span>
                         </div>
                       );
                     })}
+                    {memberTasks.length > 3 && (
+                      <p className="text-[10px] text-gray-600 ml-3.5">+{memberTasks.length - 3}건 더</p>
+                    )}
                   </div>
                 </div>
-              );
-            })}
+              ))}
 
-            {tasksByAssignee.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-6">진행 중인 업무가 없습니다</p>
-            )}
+              {tasksByAssignee.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-4">진행 중인 업무가 없습니다</p>
+              )}
+            </div>
           </div>
         </div>
 
