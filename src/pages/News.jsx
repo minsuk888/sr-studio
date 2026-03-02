@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Sparkles,
   CalendarDays,
+  Trash2,
 } from 'lucide-react';
 import { newsService } from '../services/newsService';
 
@@ -200,6 +201,27 @@ export default function News() {
       .finally(() => setTimeout(() => setIsRefreshing(false), 800));
   };
 
+  // ---- 기사 초기화 ----
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetArticles = useCallback(async () => {
+    if (!window.confirm('스크랩한 기사를 모두 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+    setIsResetting(true);
+    try {
+      await newsService.deleteAll();
+      setNewsArticles([]);
+      setAiInsight('');
+      setBookmarkedIds([]);
+      setCurrentPage(1);
+      setShowInsight(false);
+      setInsightGeneratedAt('');
+    } catch (err) {
+      console.error('기사 초기화 실패:', err);
+    } finally {
+      setIsResetting(false);
+    }
+  }, []);
+
   // ---- AI 인사이트 생성 ----
   const handleGenerateInsight = () => {
     if (newsArticles.length === 0) {
@@ -281,6 +303,14 @@ export default function News() {
           <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm">
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             {isRefreshing ? '뉴스 수집 중...' : '스크랩 실행'}
+          </button>
+          <button
+            onClick={handleResetArticles}
+            disabled={isResetting || isRefreshing}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm"
+          >
+            <Trash2 className={`w-4 h-4 ${isResetting ? 'animate-spin' : ''}`} />
+            {isResetting ? '삭제 중...' : '초기화'}
           </button>
         </div>
       </div>

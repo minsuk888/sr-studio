@@ -32,7 +32,7 @@ export default function Layout() {
             <div className="w-7 h-7 bg-brand-600 rounded-lg flex items-center justify-center">
               <Flag className="w-4 h-4 text-white" />
             </div>
-            <span className="text-sm font-extrabold text-white tracking-wide">SR STUDIO</span>
+            <span className="text-sm font-extrabold text-white tracking-wide">SUPERRACE MKT</span>
           </div>
         </div>
 

@@ -6,6 +6,9 @@ import {
   CheckCircle2,
   TrendingUp,
   CalendarClock,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Newspaper,
   ArrowUpRight,
   Clock,
@@ -18,7 +21,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { useApp } from '../context/AppContext';
 import { analyticsService } from '../services/analyticsService';
@@ -128,10 +130,81 @@ function CustomTooltip({ active, payload, label }) {
           <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
           <span className="text-gray-400">{entry.name}:</span>
           <span className="font-medium text-gray-300">
-            {(entry.value / 10000).toFixed(1)}만
+            {Number(entry.value).toLocaleString('ko-KR')}명
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function MiniCalendar({ month, setMonth, events, tasks }) {
+  const year = month.getFullYear();
+  const m = month.getMonth();
+  const firstDay = new Date(year, m, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, m + 1, 0).getDate();
+  const todayCal = new Date();
+  const todayStr = todayCal.toISOString().split('T')[0];
+
+  // Collect dates with events
+  const eventDates = new Set();
+  events.forEach(e => {
+    if (e.date) eventDates.add(e.date);
+  });
+  tasks.forEach(t => {
+    if (t.deadline) eventDates.add(t.deadline);
+  });
+
+  const days = [];
+  // Empty cells for days before first day
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  // Actual days
+  for (let d = 1; d <= daysInMonth; d++) days.push(d);
+
+  const monthStr = `${year}년 ${m + 1}월`;
+
+  return (
+    <div>
+      {/* Header with navigation */}
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={() => setMonth(new Date(year, m - 1))} className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-sm font-semibold text-gray-300">{monthStr}</span>
+        <button onClick={() => setMonth(new Date(year, m + 1))} className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {['일','월','화','수','목','금','토'].map(d => (
+          <div key={d} className="text-center text-[10px] text-gray-500 py-1">{d}</div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {days.map((day, i) => {
+          if (day === null) return <div key={`e${i}`} />;
+          const dateStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const isToday = dateStr === todayStr;
+          const hasEvent = eventDates.has(dateStr);
+
+          return (
+            <div key={i} className="relative flex flex-col items-center py-1">
+              <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs
+                ${isToday ? 'bg-brand-500 text-white font-bold' : 'text-gray-400'}
+              `}>
+                {day}
+              </span>
+              {hasEvent && !isToday && (
+                <span className="absolute bottom-0 w-1 h-1 rounded-full bg-brand-400" />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -141,12 +214,13 @@ function CustomTooltip({ active, payload, label }) {
 // ---------------------------------------------------------------------------
 
 export default function Dashboard() {
-  const { tasks, members, loading } = useApp();
+  const { tasks, members, calendarEvents, loading } = useApp();
 
   const [snsOverview, setSnsOverview] = useState([]);
-  const [snsGrowthData, setSnsGrowthData] = useState([]);
+  const [ytGrowthData, setYtGrowthData] = useState([]);
   const [newsArticles, setNewsArticles] = useState([]);
   const [extraLoading, setExtraLoading] = useState(true);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   // AI 인사이트
   const [dashboardAi, setDashboardAi] = useState('');
@@ -155,12 +229,12 @@ export default function Dashboard() {
   useEffect(() => {
     Promise.all([
       analyticsService.getOverview(),
-      analyticsService.getGrowth(),
+      analyticsService.getYoutubeGrowthData(),
       newsService.getAll(),
     ])
       .then(([overview, growth, news]) => {
         setSnsOverview(overview);
-        setSnsGrowthData(growth);
+        setYtGrowthData(growth);
         setNewsArticles(news);
       })
       .catch(console.error)
@@ -217,6 +291,31 @@ export default function Dashboard() {
     () => [...newsArticles].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3),
     [newsArticles],
   );
+
+  // Monthly calendar items
+  const monthlyItems = useMemo(() => {
+    const y = calendarMonth.getFullYear();
+    const m = calendarMonth.getMonth();
+    const monthPrefix = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+    const items = [];
+
+    // Calendar events this month
+    calendarEvents.forEach(e => {
+      if (e.date?.startsWith(monthPrefix)) {
+        items.push({ date: e.date, title: e.title, type: 'event', color: e.color || '#6366f1' });
+      }
+    });
+
+    // Task deadlines this month
+    tasks.forEach(t => {
+      if (t.deadline?.startsWith(monthPrefix)) {
+        items.push({ date: t.deadline, title: t.title, type: 'task', color: '#f59e0b' });
+      }
+    });
+
+    return items.sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
+  }, [calendarEvents, tasks, calendarMonth]);
 
   const handleDashboardAi = async () => {
     setDashboardAiLoading(true);
@@ -384,47 +483,81 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Chart + News */}
+        {/* RIGHT COLUMN: Calendar + YouTube Chart + News */}
         <div className="lg:col-span-2 flex flex-col gap-4">
-          {/* Mini SNS Chart */}
+          {/* Mini Calendar + Monthly Schedule */}
           <div className="bg-surface-800 rounded-xl shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4.5 h-4.5 text-brand-500" />
-              SNS 팔로워 추이
+              <CalendarDays className="w-4.5 h-4.5 text-brand-500" />
+              미니 캘린더
             </h2>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={snsGrowthData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gradYT" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#FF0000" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#FF0000" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradIG" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#E4405F" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#E4405F" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradTT" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#6366f1" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
-                  <Area type="monotone" dataKey="youtube" name="YouTube" stroke="#FF0000" strokeWidth={2} fill="url(#gradYT)" />
-                  <Area type="monotone" dataKey="instagram" name="Instagram" stroke="#E4405F" strokeWidth={2} fill="url(#gradIG)" />
-                  <Area type="monotone" dataKey="tiktok" name="TikTok" stroke="#6366f1" strokeWidth={2} fill="url(#gradTT)" />
-                </AreaChart>
-              </ResponsiveContainer>
+            <MiniCalendar month={calendarMonth} setMonth={setCalendarMonth} events={calendarEvents} tasks={tasks} />
+
+            {/* Monthly Schedule List */}
+            <div className="border-t border-surface-700 pt-3 mt-3">
+              <h3 className="text-xs font-semibold text-gray-400 mb-2">이달의 일정</h3>
+              {monthlyItems.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-3">이번 달 등록된 일정이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {monthlyItems.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 w-12 shrink-0">{item.date.slice(5)}</span>
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: item.color }} />
+                      <span className="text-xs text-gray-300 truncate flex-1">{item.title}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                        item.type === 'event' ? 'bg-purple-500/20 text-purple-400' : 'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {item.type === 'event' ? '일정' : '업무'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* YouTube Subscriber Chart */}
+          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
+            <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2 mb-4">
+              <TrendingUp className="w-4.5 h-4.5 text-red-500" />
+              YouTube 구독자 추이
+            </h2>
+            {ytGrowthData.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10">채널을 등록하고 데이터를 수집하면 표시됩니다</p>
+            ) : (
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={ytGrowthData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gradYTSub" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#FF0000" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#FF0000" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => {
+                        const parts = v.split('-');
+                        return `${parts[1]}.${parts[2]}`;
+                      }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#6b7280' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="subscribers" name="구독자" stroke="#FF0000" strokeWidth={2} fill="url(#gradYTSub)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
           {/* Recent News */}

@@ -60,8 +60,8 @@ export default function Sidebar({ isOpen, onClose }) {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <h1 className="text-sm font-extrabold tracking-widest whitespace-nowrap">SR STUDIO</h1>
-              <p className="text-[10px] text-brand-400 tracking-widest font-medium">MOTORSPORT</p>
+              <h1 className="text-sm font-extrabold tracking-widest whitespace-nowrap">SUPERRACE MKT</h1>
+              <p className="text-[10px] text-brand-400 tracking-widest font-medium">RACE TO ONE</p>
             </div>
           )}
         </div>

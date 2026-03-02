@@ -392,6 +392,41 @@ export const analyticsService = {
   },
 
   // ============================================
+  // YouTube 구독자 성장 데이터 (대시보드용)
+  // ============================================
+  async getYoutubeGrowthData() {
+    // 1. Get own YouTube channel(s)
+    const { data: channels, error: chErr } = await supabase
+      .from('sns_channels')
+      .select('channel_id')
+      .eq('platform', 'youtube')
+      .eq('is_own', true);
+    if (chErr || !channels?.length) return [];
+
+    const channelIds = channels.map(c => c.channel_id);
+
+    // 2. Get stats history for these channels
+    const { data: stats, error: stErr } = await supabase
+      .from('sns_channel_stats')
+      .select('fetched_date, subscribers, total_views')
+      .in('channel_id', channelIds)
+      .eq('platform', 'youtube')
+      .order('fetched_date', { ascending: true });
+    if (stErr || !stats?.length) return [];
+
+    // 3. Group by date, sum if multiple channels
+    const byDate = {};
+    stats.forEach(row => {
+      const d = row.fetched_date;
+      if (!byDate[d]) byDate[d] = { date: d, subscribers: 0, views: 0 };
+      byDate[d].subscribers += Number(row.subscribers) || 0;
+      byDate[d].views += Number(row.total_views) || 0;
+    });
+
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  // ============================================
   // 일괄 갱신
   // ============================================
   async refreshAllChannelData(channels) {

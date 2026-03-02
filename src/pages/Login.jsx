@@ -43,8 +43,8 @@ export default function Login() {
           <div className="w-16 h-16 bg-brand-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-brand-500/30">
             <Flag className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-wide">SR STUDIO</h1>
-          <p className="text-sm text-gray-500 mt-1 tracking-widest">MARKETING TOOL</p>
+          <h1 className="text-2xl font-bold text-white tracking-wide">SUPERRACE MKT</h1>
+          <p className="text-sm text-gray-500 mt-1 tracking-widest">RACE TO ONE</p>
         </div>
 
         {/* 로그인 카드 */}
@@ -94,7 +94,7 @@ export default function Login() {
 
         {/* 하단 텍스트 */}
         <p className="text-center text-xs text-gray-400 mt-6">
-          Super Race Marketing Management System
+          SUPERRACE Marketing Management System
         </p>
       </div>
 
