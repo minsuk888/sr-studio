@@ -87,10 +87,10 @@ export const analyticsService = {
     // 1. 플랫폼별 API로 채널 정보 조회
     let channel;
     if (platform === 'instagram') {
-      const res = await fetch(`${API_BASE}/api/sns/instagram-profile`, {
+      const res = await fetch(`${API_BASE}/api/sns/instagram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: channelId }),
+        body: JSON.stringify({ type: 'profile', accountId: channelId }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -167,10 +167,10 @@ export const analyticsService = {
   async fetchChannelStats(channelId, platform = 'youtube') {
     let res;
     if (platform === 'instagram') {
-      res = await fetch(`${API_BASE}/api/sns/instagram-profile`, {
+      res = await fetch(`${API_BASE}/api/sns/instagram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: channelId }),
+        body: JSON.stringify({ type: 'profile', accountId: channelId }),
       });
     } else {
       res = await fetch(`${API_BASE}/api/sns/youtube-channel`, {
@@ -243,10 +243,10 @@ export const analyticsService = {
   async fetchChannelVideos(channelId, maxResults = 12, platform = 'youtube') {
     let res;
     if (platform === 'instagram') {
-      res = await fetch(`${API_BASE}/api/sns/instagram-media`, {
+      res = await fetch(`${API_BASE}/api/sns/instagram`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: channelId, maxResults }),
+        body: JSON.stringify({ type: 'media', accountId: channelId, maxResults }),
       });
     } else {
       // Try to get uploads_playlist_id from Supabase for quota optimization

@@ -23,10 +23,10 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       // 서버사이드 인증 (비밀번호 해싱 + RLS 보호)
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ action: 'login', password }),
       });
 
       const data = await res.json();
@@ -52,10 +52,10 @@ export function AuthProvider({ children }) {
 
   const changePassword = useCallback(async (currentPw, newPw) => {
     // 서버사이드 비밀번호 변경 (해시 처리)
-    const res = await fetch('/api/auth/change-password', {
+    const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+      body: JSON.stringify({ action: 'change-password', currentPassword: currentPw, newPassword: newPw }),
     });
 
     const data = await res.json();
