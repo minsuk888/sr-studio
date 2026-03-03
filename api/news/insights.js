@@ -73,22 +73,24 @@ ${articleList}
       maxTokens: 4096,
     });
 
-    // JSON 파싱 (AI가 JSON 외 텍스트를 추가할 경우 대비해 추출)
+    // JSON 파싱 (코드 펜스 제거 후 추출)
     let insight = '';
     let negativeArticles = [];
 
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      // 코드 펜스 제거 (```json ... ```)
+      const stripped = rawText.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '');
+      const jsonMatch = stripped.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        insight = parsed.insight || rawText;
+        insight = parsed.insight || stripped;
         negativeArticles = Array.isArray(parsed.negativeArticles) ? parsed.negativeArticles : [];
       } else {
-        insight = rawText;
+        insight = stripped;
       }
     } catch {
-      // JSON 파싱 실패 시 텍스트 그대로 사용
-      insight = rawText;
+      // JSON 파싱 실패 시 코드 펜스만 제거하고 텍스트 사용
+      insight = rawText.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
     }
 
     return res.status(200).json({

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import renderMarkdown from '../utils/renderMarkdown';
 import {
   AreaChart,
   Area,
@@ -69,24 +70,7 @@ function formatFullDate(dateStr) {
   return dateStr.split('T')[0];
 }
 
-// 마크다운 → HTML
-function renderInsightText(text) {
-  return text
-    .split('\n')
-    .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(3)}</h3>`;
-      if (line.startsWith('# ')) return `<h3 class="text-base font-bold text-gray-100 mt-4 mb-2">${line.slice(2)}</h3>`;
-      if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
-        return `<li class="text-sm text-gray-300 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
-      }
-      if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
-      return `<p class="text-sm text-gray-300 leading-relaxed mb-1">${content}</p>`;
-    })
-    .join('');
-}
+// renderMarkdown은 ../utils/renderMarkdown.js에서 import
 
 // 색상 팔레트
 const CHANNEL_COLORS = ['#FF0000', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
@@ -1527,8 +1511,9 @@ export default function Analytics() {
                 {!isContentAiLoading && contentAiInsight && (
                   <div className="px-4 pb-4">
                     <div
-                      className="prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: renderInsightText(contentAiInsight) }}
+                      className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
+                      style={{ maxHeight: '500px' }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(contentAiInsight) }}
                     />
                   </div>
                 )}
@@ -1617,8 +1602,9 @@ export default function Analytics() {
                       {commentAnalysis.analysis && (
                         <div className="prose prose-sm max-w-none">
                           <div
-                            className="text-sm text-gray-400 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-300"
-                            dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
+                            className="overflow-y-auto custom-scrollbar"
+                            style={{ maxHeight: '500px' }}
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(commentAnalysis.analysis) }}
                           />
                           <p className="text-xs text-gray-400 mt-3">
                             {commentAnalysis.analyzedCount}개 댓글 분석 · {commentAnalysis.generatedAt ? new Date(commentAnalysis.generatedAt).toLocaleString('ko-KR') : ''}
@@ -1882,8 +1868,9 @@ export default function Analytics() {
                           </span>
                         </div>
                         <div
-                          className="prose-sm max-w-none text-sm text-gray-400 leading-relaxed [&_h3]:text-sm [&_h3]:font-bold [&_h3]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_li]:ml-4 [&_li]:list-disc [&_li]:mb-1 [&_strong]:text-gray-300"
-                          dangerouslySetInnerHTML={{ __html: renderInsightText(commentAnalysis.analysis) }}
+                          className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
+                          style={{ maxHeight: '500px' }}
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(commentAnalysis.analysis) }}
                         />
                       </div>
                     )}
@@ -2007,8 +1994,9 @@ export default function Analytics() {
               </div>
             ) : aiInsight ? (
               <div
-                className="prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+                className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
+                style={{ maxHeight: '600px' }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(aiInsight) }}
               />
             ) : (
               <div className="text-center py-12">

@@ -60,4 +60,23 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #484f58;
   }
+
+  /* AI 인사이트 영역 스크롤바 */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #30363d transparent;
+  }
 }

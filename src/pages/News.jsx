@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import renderMarkdown from '../utils/renderMarkdown';
 import {
   Newspaper,
   Search,
@@ -65,27 +66,7 @@ function getOneWeekAgo() {
   return d.toISOString().split('T')[0];
 }
 
-// 마크다운 → 간단 HTML 변환 (### 헤더, **, -, 줄바꿈)
-function renderInsightText(text) {
-  return text
-    .split('\n')
-    .map((line) => {
-      // ### 헤더
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-gray-100 mt-4 mb-2 flex items-center gap-1">${line.slice(3)}</h3>`;
-      // 리스트
-      if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
-        return `<li class="text-sm text-gray-300 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
-      }
-      // 빈 줄
-      if (line.trim() === '') return '<div class="h-1"></div>';
-      // 일반 텍스트
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-200">$1</strong>');
-      return `<p class="text-sm text-gray-300 leading-relaxed mb-1">${content}</p>`;
-    })
-    .join('');
-}
+// renderMarkdown은 ../utils/renderMarkdown.js에서 import
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -383,8 +364,9 @@ export default function News() {
 
                 {/* 일반 인사이트 */}
                 <div
-                  className="prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+                  className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
+                  style={{ maxHeight: '600px' }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(aiInsight) }}
                 />
               </>
             )}

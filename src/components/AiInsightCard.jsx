@@ -1,22 +1,6 @@
 import { useState } from 'react';
 import { Sparkles, Loader, ChevronDown, ChevronUp } from 'lucide-react';
-
-function renderInsightText(text) {
-  return text
-    .split('\n')
-    .map((line) => {
-      if (line.startsWith('### ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2">${line.slice(4)}</h3>`;
-      if (line.startsWith('## ')) return `<h3 class="text-sm font-bold text-white mt-4 mb-2">${line.slice(3)}</h3>`;
-      if (line.startsWith('- ')) {
-        const content = line.slice(2).replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
-        return `<li class="text-sm text-gray-400 leading-relaxed ml-4 mb-1 list-disc">${content}</li>`;
-      }
-      if (line.trim() === '') return '<div class="h-1"></div>';
-      const content = line.replace(/\*\*(.*?)\*\*/g, '<strong class="text-gray-300">$1</strong>');
-      return `<p class="text-sm text-gray-400 leading-relaxed mb-1">${content}</p>`;
-    })
-    .join('');
-}
+import renderMarkdown from '../utils/renderMarkdown';
 
 export default function AiInsightCard({
   title = 'AI 인사이트',
@@ -24,6 +8,7 @@ export default function AiInsightCard({
   loading,
   onGenerate,
   defaultOpen = false,
+  maxHeight = 500,
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -50,8 +35,9 @@ export default function AiInsightCard({
           ) : insight ? (
             <>
               <div
-                className="prose-sm max-w-none mb-3"
-                dangerouslySetInnerHTML={{ __html: renderInsightText(insight) }}
+                className="prose-sm max-w-none mb-3 overflow-y-auto custom-scrollbar"
+                style={{ maxHeight: `${maxHeight}px` }}
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(insight) }}
               />
               <button
                 onClick={onGenerate}
