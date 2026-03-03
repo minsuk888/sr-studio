@@ -1,13 +1,14 @@
 // Vercel Serverless Function — 회의록 AI 요약
 // POST /api/meetings/summary  body: { title, date, agendas, minutes, attendees }
 import { handleCors } from '../_utils/security.js';
+import { callGemini, getGeminiKey } from '../_utils/gemini.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = getGeminiKey();
   if (!apiKey) {
-    return res.status(500).json({ error: 'Anthropic API 키가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: 'Gemini API 키가 설정되지 않았습니다. Vercel 환경변수에 GEMINI_API_KEY를 추가해주세요.' });
   }
 
   try {
@@ -49,29 +50,12 @@ ${minutes || '회의록 없음'}
 ### 💡 참고 사항
 - 추가로 고려할 점이나 리스크`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2048,
-        system: '당신은 슈퍼레이스(Super Race) 마케팅 팀의 회의 분석 전문가입니다. 회의록을 읽고 핵심 내용을 요약하며, 결정사항과 액션 아이템을 명확하게 추출합니다.',
-        messages: [{ role: 'user', content: userMessage }],
-      }),
+    const text = await callGemini({
+      apiKey,
+      systemPrompt: '당신은 슈퍼레이스(Super Race) 마케팅 팀의 회의 분석 전문가입니다. 회의록을 읽고 핵심 내용을 요약하며, 결정사항과 액션 아이템을 명확하게 추출합니다.',
+      userMessage,
+      maxTokens: 2048,
     });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Claude API error:', response.status, errText);
-      return res.status(response.status).json({ error: `Claude API 오류 (${response.status})` });
-    }
-
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '';
 
     return res.status(200).json({
       summary: text,
@@ -79,6 +63,7 @@ ${minutes || '회의록 없음'}
     });
   } catch (err) {
     console.error('Meeting summary error:', err);
-    return res.status(500).json({ error: err.message });
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
   }
 }

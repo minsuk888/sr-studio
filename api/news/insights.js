@@ -1,13 +1,14 @@
-// Vercel Serverless Function — Claude AI 뉴스 인사이트
+// Vercel Serverless Function — Gemini AI 뉴스 인사이트
 // POST /api/news/insights  body: { articles: [{ title, summary, date, source, publisher }] }
 import { handleCors } from '../_utils/security.js';
+import { callGemini, getGeminiKey } from '../_utils/gemini.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = getGeminiKey();
   if (!apiKey) {
-    return res.status(500).json({ error: 'Anthropic API 키가 설정되지 않았습니다. Vercel 환경변수에 ANTHROPIC_API_KEY를 추가해주세요.' });
+    return res.status(500).json({ error: 'Gemini API 키가 설정되지 않았습니다. Vercel 환경변수에 GEMINI_API_KEY를 추가해주세요.' });
   }
 
   try {
@@ -65,38 +66,14 @@ ${articleList}
 
 부정 기사가 없으면 빈 배열 [] 반환`;
 
-    // Claude API 호출
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다. 수집된 뉴스를 분석하고 요청된 JSON 형식으로만 응답합니다. JSON 외에 다른 텍스트는 절대 출력하지 않습니다.',
-        messages: [
-          { role: 'user', content: userMessage },
-        ],
-      }),
+    const rawText = await callGemini({
+      apiKey,
+      systemPrompt: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다. 수집된 뉴스를 분석하고 요청된 JSON 형식으로만 응답합니다. JSON 외에 다른 텍스트는 절대 출력하지 않습니다.',
+      userMessage,
+      maxTokens: 4096,
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Claude API error:', response.status, errText);
-      return res.status(response.status).json({ error: `Claude API 오류 (${response.status}): ${errText}` });
-    }
-
-    const data = await response.json();
-    const rawText = data.content?.[0]?.text || '';
-
-    if (!rawText) {
-      return res.status(500).json({ error: 'AI 응답을 생성하지 못했습니다.' });
-    }
-
-    // JSON 파싱 (Claude가 JSON 외 텍스트를 추가할 경우 대비해 추출)
+    // JSON 파싱 (AI가 JSON 외 텍스트를 추가할 경우 대비해 추출)
     let insight = '';
     let negativeArticles = [];
 
@@ -123,6 +100,7 @@ ${articleList}
     });
   } catch (err) {
     console.error('Insights error:', err);
-    return res.status(500).json({ error: err.message });
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
   }
 }

@@ -1,13 +1,14 @@
-// Vercel Serverless Function — Claude AI SNS 성과 인사이트
+// Vercel Serverless Function — Gemini AI SNS 성과 인사이트
 // POST /api/sns/insights  body: { channels, videos, competitors }
 import { handleCors } from '../_utils/security.js';
+import { callGemini, getGeminiKey } from '../_utils/gemini.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = getGeminiKey();
   if (!apiKey) {
-    return res.status(500).json({ error: 'Anthropic API 키가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: 'Gemini API 키가 설정되지 않았습니다. Vercel 환경변수에 GEMINI_API_KEY를 추가해주세요.' });
   }
 
   try {
@@ -83,36 +84,12 @@ ${competitorSummary}
 - 경쟁 채널 대비 우리 채널의 강점/약점 (데이터가 있을 경우)
 - 벤치마킹 포인트 제안`;
 
-    // Claude API 호출
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube/Instagram 채널 데이터와 콘텐츠 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다. 콘텐츠 유형(VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)을 분류하고, 유형별 성과를 비교 분석합니다. 게시 주기와 최적 업로드 타이밍도 분석합니다.',
-        messages: [
-          { role: 'user', content: userMessage },
-        ],
-      }),
+    const text = await callGemini({
+      apiKey,
+      systemPrompt: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube/Instagram 채널 데이터와 콘텐츠 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다. 콘텐츠 유형(VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)을 분류하고, 유형별 성과를 비교 분석합니다. 게시 주기와 최적 업로드 타이밍도 분석합니다.',
+      userMessage,
+      maxTokens: 4096,
     });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Claude API error:', response.status, errText);
-      return res.status(response.status).json({ error: `Claude API 오류 (${response.status}): ${errText}` });
-    }
-
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '';
-
-    if (!text) {
-      return res.status(500).json({ error: 'AI 응답을 생성하지 못했습니다.' });
-    }
 
     return res.status(200).json({
       insight: text,
@@ -121,6 +98,7 @@ ${competitorSummary}
     });
   } catch (err) {
     console.error('SNS Insights error:', err);
-    return res.status(500).json({ error: err.message });
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
   }
 }

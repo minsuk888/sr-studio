@@ -1,7 +1,8 @@
 // Vercel Serverless Function — YouTube 댓글 수집 + AI 감성 분석 (통합)
 // POST /api/sns/youtube-comments  body: { videoId, maxResults, analyze?, videoTitle? }
-// analyze=true 이면 댓글 수집 후 Claude AI 감성 분석까지 수행
+// analyze=true 이면 댓글 수집 후 Gemini AI 감성 분석까지 수행
 import { handleCors } from '../_utils/security.js';
+import { callGemini, getGeminiKey } from '../_utils/gemini.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -60,14 +61,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // Step 2: AI sentiment analysis with Claude
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicKey) {
+    // Step 2: AI sentiment analysis with Gemini
+    const geminiKey = getGeminiKey();
+    if (!geminiKey) {
       return res.status(200).json({
         comments,
         totalCount: ytData.pageInfo?.totalResults || comments.length,
         analysis: null,
-        error: 'Anthropic API 키가 설정되지 않아 감성 분석을 건너뜁니다.',
+        error: 'Gemini API 키가 설정되지 않아 감성 분석을 건너뜁니다.',
       });
     }
 
@@ -103,43 +104,33 @@ ${commentList}
 \`\`\`
 sentiment 값: "positive", "neutral", "negative" 중 하나`;
 
-    const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 4096,
-        system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 소셜미디어 분석가입니다. YouTube 댓글을 분석하여 시청자 감성, 핵심 피드백, 콘텐츠 개선 인사이트를 제공합니다. 항상 구체적이고 실행 가능한 제안을 합니다.',
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-    });
+    let analysisText = '';
+    let sentiments = [];
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error('Claude API error:', aiResponse.status, errText);
+    try {
+      analysisText = await callGemini({
+        apiKey: geminiKey,
+        systemPrompt: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 소셜미디어 분석가입니다. YouTube 댓글을 분석하여 시청자 감성, 핵심 피드백, 콘텐츠 개선 인사이트를 제공합니다. 항상 구체적이고 실행 가능한 제안을 합니다.',
+        userMessage,
+        maxTokens: 4096,
+      });
+
+      const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        try {
+          sentiments = JSON.parse(jsonMatch[1]);
+        } catch (e) {
+          console.error('Sentiment JSON parse error:', e);
+        }
+      }
+    } catch (aiErr) {
+      console.error('Gemini analysis error:', aiErr);
       return res.status(200).json({
         comments,
         totalCount: ytData.pageInfo?.totalResults || comments.length,
         analysis: null,
-        error: `AI 분석 실패: ${errText}`,
+        error: `AI 분석 실패: ${aiErr.message}`,
       });
-    }
-
-    const aiData = await aiResponse.json();
-    const analysisText = aiData.content?.[0]?.text || '';
-
-    let sentiments = [];
-    const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      try {
-        sentiments = JSON.parse(jsonMatch[1]);
-      } catch (e) {
-        console.error('Sentiment JSON parse error:', e);
-      }
     }
 
     return res.status(200).json({

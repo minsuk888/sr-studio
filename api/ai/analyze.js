@@ -1,13 +1,14 @@
 // Vercel Serverless Function — 범용 AI 분석 엔드포인트
 // POST /api/ai/analyze  body: { feature, context, prompt }
 import { handleCors } from '../_utils/security.js';
+import { callGemini, getGeminiKey } from '../_utils/gemini.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = getGeminiKey();
   if (!apiKey) {
-    return res.status(500).json({ error: 'Anthropic API 키가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: 'Gemini API 키가 설정되지 않았습니다. Vercel 환경변수에 GEMINI_API_KEY를 추가해주세요.' });
   }
 
   try {
@@ -26,49 +27,12 @@ export default async function handler(req, res) {
       news: '당신은 슈퍼레이스 마케팅 팀의 뉴스/트렌드 분석가입니다. 뉴스를 분석하고 마케팅 인사이트를 제공합니다.',
     };
 
-    const requestBody = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
-      system: systemPrompts[feature] || systemPrompts.dashboard,
-      messages: [{ role: 'user', content: `${context}\n\n${prompt}` }],
+    const text = await callGemini({
+      apiKey,
+      systemPrompt: systemPrompts[feature] || systemPrompts.dashboard,
+      userMessage: `${context}\n\n${prompt}`,
+      maxTokens: 2048,
     });
-
-    // 재시도 로직 (529 overloaded 대응)
-    let response;
-    const MAX_RETRIES = 2;
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: requestBody,
-      });
-
-      if (response.ok || (response.status !== 529 && response.status !== 503)) break;
-
-      // 529/503: 잠시 대기 후 재시도
-      if (attempt < MAX_RETRIES) {
-        const delay = (attempt + 1) * 1500; // 1.5초, 3초
-        await new Promise((r) => setTimeout(r, delay));
-        console.log(`Claude API 재시도 ${attempt + 1}/${MAX_RETRIES} (status: ${response.status})`);
-      }
-    }
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Claude API error:', response.status, errText);
-      return res.status(response.status).json({ error: `Claude API 오류 (${response.status})` });
-    }
-
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '';
-
-    if (!text) {
-      return res.status(500).json({ error: 'AI 응답을 생성하지 못했습니다.' });
-    }
 
     return res.status(200).json({
       insight: text,
@@ -77,6 +41,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('AI Analyze error:', err);
-    return res.status(500).json({ error: err.message });
+    const status = err.status || 500;
+    return res.status(status).json({ error: err.message });
   }
 }
