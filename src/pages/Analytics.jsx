@@ -1799,7 +1799,7 @@ export default function Analytics() {
                 <Youtube size={10} /> YouTube 전용
               </span>
             </div>
-            <p className="text-xs text-gray-400 mb-5">YouTube 영상의 댓글을 수집하고 Claude AI로 감성 분석합니다 (Instagram은 댓글 API를 지원하지 않습니다)</p>
+            <p className="text-xs text-gray-400 mb-5">YouTube 영상의 댓글을 수집하고 AI로 감성 분석합니다 (Instagram은 댓글 API를 지원하지 않습니다)</p>
 
             {channels.filter(ch => ch.is_own).length === 0 ? (
               <div className="text-center py-8 text-sm text-gray-400">
@@ -2003,7 +2003,7 @@ export default function Analytics() {
             {isGeneratingInsight ? (
               <div className="flex items-center gap-2 py-12 justify-center text-sm text-brand-400">
                 <Loader className="w-5 h-5 animate-spin" />
-                Claude AI가 채널 데이터, 영상 성과, 인게이지먼트를 분석하고 있습니다...
+                AI가 채널 데이터, 영상 성과, 인게이지먼트를 분석하고 있습니다...
               </div>
             ) : aiInsight ? (
               <div
