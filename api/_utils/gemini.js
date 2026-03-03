@@ -33,7 +33,13 @@ export async function callGemini({ apiKey, systemPrompt, userMessage, maxTokens 
   if (!response.ok) {
     const errText = await response.text();
     console.error('Gemini API error:', response.status, errText);
-    const err = new Error(`Gemini API 오류 (${response.status})`);
+    // 에러 상세를 파싱하여 사용자에게 유용한 메시지 제공
+    let detail = errText;
+    try {
+      const errJson = JSON.parse(errText);
+      detail = errJson.error?.message || errText;
+    } catch { /* 파싱 실패 시 원문 사용 */ }
+    const err = new Error(`Gemini API 오류 (${response.status}): ${detail}`);
     err.status = response.status;
     err.detail = errText;
     throw err;
