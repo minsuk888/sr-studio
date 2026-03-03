@@ -19,6 +19,8 @@ import {
   Sparkles,
   CalendarDays,
   Trash2,
+  AlertTriangle,
+  ShieldAlert,
 } from 'lucide-react';
 import { newsService } from '../services/newsService';
 
@@ -109,6 +111,7 @@ export default function News() {
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [showInsight, setShowInsight] = useState(false);
   const [insightGeneratedAt, setInsightGeneratedAt] = useState('');
+  const [negativeArticles, setNegativeArticles] = useState([]);
 
   const addKeyword = useCallback(() => {
     const kw = newKeywordInput.trim();
@@ -211,6 +214,7 @@ export default function News() {
       await newsService.deleteAll();
       setNewsArticles([]);
       setAiInsight('');
+      setNegativeArticles([]);
       setBookmarkedIds([]);
       setCurrentPage(1);
       setShowInsight(false);
@@ -231,9 +235,11 @@ export default function News() {
     setIsGeneratingInsight(true);
     setShowInsight(true);
     setAiInsight('');
+    setNegativeArticles([]);
     newsService.generateInsights(newsArticles)
       .then((data) => {
         setAiInsight(data.insight || '인사이트를 생성하지 못했습니다.');
+        setNegativeArticles(data.negativeArticles || []);
         setInsightGeneratedAt(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }));
       })
       .catch((err) => {
@@ -241,6 +247,17 @@ export default function News() {
         setAiInsight('AI 인사이트 생성에 실패했습니다. Anthropic API 키가 Vercel 환경변수에 설정되어 있는지 확인해주세요.');
       })
       .finally(() => setIsGeneratingInsight(false));
+  };
+
+  // 부정 기사 제목 Set (카드 매칭용 — 제목 앞 30자로 fuzzy 매칭)
+  const negativeTitleSet = useMemo(() => {
+    return new Set(negativeArticles.map((n) => n.title?.slice(0, 30).toLowerCase()));
+  }, [negativeArticles]);
+
+  const isNegativeArticle = (article) => {
+    if (negativeTitleSet.size === 0) return false;
+    const titlePrefix = (article.title || '').slice(0, 30).toLowerCase();
+    return negativeTitleSet.has(titlePrefix);
   };
 
   const tickerItems = useMemo(() => {
@@ -323,22 +340,53 @@ export default function News() {
               <Sparkles className="w-4.5 h-4.5 text-amber-500" />
               <h3 className="text-sm font-bold text-white">AI 뉴스 인사이트</h3>
               {insightGeneratedAt && <span className="text-xs text-gray-500">({insightGeneratedAt} 생성)</span>}
+              {negativeArticles.length > 0 && (
+                <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-semibold">
+                  <AlertTriangle size={10} />
+                  부정 기사 {negativeArticles.length}건
+                </span>
+              )}
             </div>
             <button onClick={() => setShowInsight(false)} className="p-1 rounded-md hover:bg-white/10 transition-colors cursor-pointer">
               <X className="w-4 h-4 text-gray-500" />
             </button>
           </div>
-          <div className="p-5">
+          <div className="p-5 space-y-5">
             {isGeneratingInsight ? (
               <div className="flex items-center justify-center py-8 gap-3">
                 <Loader className="w-5 h-5 animate-spin text-amber-500" />
                 <span className="text-sm text-gray-400">Claude AI가 {newsArticles.length}개 기사를 분석하고 있습니다...</span>
               </div>
             ) : (
-              <div
-                className="prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
-              />
+              <>
+                {/* 부정 기사 경고 카드 */}
+                {negativeArticles.length > 0 && (
+                  <div className="bg-red-500/8 border border-red-500/25 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldAlert size={16} className="text-red-400 shrink-0" />
+                      <h4 className="text-sm font-bold text-red-300">부정 기사 모니터링 — {negativeArticles.length}건 감지</h4>
+                    </div>
+                    <div className="space-y-2.5">
+                      {negativeArticles.map((neg, i) => (
+                        <div key={i} className="flex items-start gap-2.5 p-2.5 bg-red-500/8 rounded-lg border border-red-500/15">
+                          <AlertTriangle size={13} className="text-red-400 shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-red-200 leading-snug mb-0.5 line-clamp-2">{neg.title}</p>
+                            <p className="text-[11px] text-red-400/80 leading-relaxed">{neg.reason}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-red-400/60 mt-3">위 기사들을 확인하고 필요 시 대응 전략을 수립하세요.</p>
+                  </div>
+                )}
+
+                {/* 일반 인사이트 */}
+                <div
+                  className="prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: renderInsightText(aiInsight) }}
+                />
+              </>
             )}
           </div>
         </div>
@@ -504,22 +552,35 @@ export default function News() {
           {paginatedArticles.map((article, index) => {
             const isNaver = article.source === 'naver';
             const isBookmarked = bookmarkedIds.includes(article.id);
+            const isNegative = isNegativeArticle(article);
             return (
               <a
                 href={article.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 key={article.id}
-                className={`block bg-surface-800 rounded-xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer border-l-4 ${isNaver ? 'border-l-green-400' : 'border-l-blue-400'} no-underline`}
+                className={`block bg-surface-800 rounded-xl shadow-sm p-5 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer border-l-4 no-underline ${
+                  isNegative
+                    ? 'border-l-red-500 ring-1 ring-red-500/20'
+                    : isNaver
+                      ? 'border-l-green-400'
+                      : 'border-l-blue-400'
+                }`}
                 style={{ animation: `fadeInUp 0.4s ease-out ${index * 0.06}s both` }}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${isNaver ? 'bg-green-500/15 text-green-400' : 'bg-blue-500/10 text-blue-400'}`}>
                       {isNaver ? '네이버' : '구글'}
                     </span>
                     <span className="text-xs text-gray-500">{article.date}</span>
                     {article.date === today && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/10 text-red-400">NEW</span>}
+                    {isNegative && (
+                      <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-400">
+                        <AlertTriangle size={9} />
+                        부정
+                      </span>
+                    )}
                   </div>
                   <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleBookmark(article.id); }} className="p-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer shrink-0">
                     {isBookmarked ? <BookmarkCheck className="w-4.5 h-4.5 text-brand-500" /> : <Bookmark className="w-4.5 h-4.5 text-gray-400" />}
@@ -608,6 +669,15 @@ export default function News() {
                 <span className="text-gray-400">등록 키워드</span>
                 <span className="font-bold text-brand-400">{keywords.length}개</span>
               </div>
+              {negativeArticles.length > 0 && (
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-surface-700">
+                  <span className="flex items-center gap-1 text-red-400">
+                    <AlertTriangle size={12} />
+                    부정 기사
+                  </span>
+                  <span className="font-bold text-red-400">{negativeArticles.length}건</span>
+                </div>
+              )}
             </div>
             <div className="border-t border-surface-700 pt-4">
               <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">소스 분포</h4>

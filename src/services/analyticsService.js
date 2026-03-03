@@ -30,6 +30,20 @@ export function calcChannelEngagement(videos) {
   return rates.reduce((a, b) => a + b, 0) / rates.length;
 }
 
+// Instagram 전용: 조회수가 없으므로 팔로워 대비 인게이지먼트율 계산
+export function calcInstagramEngagementRate(video, followers) {
+  const followerCount = Number(followers) || 0;
+  if (followerCount === 0) return 0;
+  return (((Number(video.likes) || 0) + (Number(video.comments) || 0)) / followerCount) * 100;
+}
+
+// Instagram 전용: 팔로워 대비 좋아요율
+export function calcInstagramLikeRatio(video, followers) {
+  const followerCount = Number(followers) || 0;
+  if (followerCount === 0) return 0;
+  return ((Number(video.likes) || 0) / followerCount) * 100;
+}
+
 export function formatDuration(iso) {
   if (!iso) return '';
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);

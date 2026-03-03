@@ -48,6 +48,8 @@ import {
   calcLikeRatio,
   calcCommentRatio,
   calcChannelEngagement,
+  calcInstagramEngagementRate,
+  calcInstagramLikeRatio,
   formatDuration,
 } from '../services/analyticsService';
 
@@ -191,16 +193,25 @@ export default function Analytics() {
   const ownChannels = useMemo(() => channels.filter((c) => c.is_own), [channels]);
   const competitorChannels = useMemo(() => channels.filter((c) => !c.is_own), [channels]);
 
-  // 영상 + 인게이지먼트율
+  // 영상 + 인게이지먼트율 (Instagram은 조회수 대신 팔로워 기준)
   const enrichedVideos = useMemo(
     () =>
-      recentVideos.map((v) => ({
-        ...v,
-        engagementRate: calcEngagementRate(v),
-        likeRatio: calcLikeRatio(v),
-        commentRatio: calcCommentRatio(v),
-      })),
-    [recentVideos],
+      recentVideos.map((v) => {
+        const channelId = v.channel_id || v.channelId;
+        const followers = channelStats[channelId]?.subscribers || 0;
+        const isInstagram = v.platform === 'instagram';
+        return {
+          ...v,
+          engagementRate: isInstagram
+            ? calcInstagramEngagementRate(v, followers)
+            : calcEngagementRate(v),
+          likeRatio: isInstagram
+            ? calcInstagramLikeRatio(v, followers)
+            : calcLikeRatio(v),
+          commentRatio: calcCommentRatio(v),
+        };
+      }),
+    [recentVideos, channelStats],
   );
 
   // 기간 필터 적용 영상
@@ -639,14 +650,16 @@ export default function Analytics() {
     }
   };
 
-  // ---- 채널별 인게이지먼트 계산 ----
+  // ---- 채널별 인게이지먼트 계산 (enrichedVideos의 플랫폼별 보정된 값 사용) ----
   const channelEngagementMap = useMemo(() => {
     const map = {};
     channels.forEach((ch) => {
       const chVideos = enrichedVideos.filter(
         (v) => (v.channel_id || v.channelId) === ch.channel_id,
       );
-      map[ch.channel_id] = calcChannelEngagement(chVideos);
+      map[ch.channel_id] = chVideos.length > 0
+        ? chVideos.reduce((s, v) => s + v.engagementRate, 0) / chVideos.length
+        : 0;
     });
     return map;
   }, [channels, enrichedVideos]);
@@ -803,8 +816,15 @@ export default function Analytics() {
           <h1 className="text-2xl font-bold text-white">SNS 분석 대시보드</h1>
           <p className="text-sm text-gray-400 mt-1">
             {channels.length > 0
-              ? `YouTube 채널 ${channels.length}개 등록됨 (우리 ${ownChannels.length} / 경쟁 ${competitorChannels.length})`
-              : 'YouTube 채널을 등록하면 실시간 분석이 시작됩니다'}
+              ? (() => {
+                  const ytCount = channels.filter(c => (c.platform || 'youtube') === 'youtube').length;
+                  const igCount = channels.filter(c => c.platform === 'instagram').length;
+                  const parts = [];
+                  if (ytCount > 0) parts.push(`YouTube ${ytCount}개`);
+                  if (igCount > 0) parts.push(`Instagram ${igCount}개`);
+                  return `${parts.join(' · ')} 등록됨 (우리 ${ownChannels.length} / 경쟁 ${competitorChannels.length})`;
+                })()
+              : 'YouTube, Instagram 채널을 등록하면 실시간 분석이 시작됩니다'}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -933,17 +953,25 @@ export default function Analytics() {
                       </div>
                       {ch.handle && <p className="text-sm text-gray-400 mb-2">{ch.handle}</p>}
                       <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-gray-400 flex-wrap">
-                        <span className="flex items-center gap-1"><Users size={13} /> 구독자 <strong className="text-white">{formatNumber(stats.subscribers || 0)}</strong></span>
-                        <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-white">{formatNumber(stats.totalViews || 0)}</strong></span>
-                        <span className="flex items-center gap-1"><Video size={13} /> 영상 <strong className="text-white">{formatNumber(stats.videoCount || 0)}</strong></span>
+                        <span className="flex items-center gap-1"><Users size={13} /> {ch.platform === 'instagram' ? '팔로워' : '구독자'} <strong className="text-white">{formatNumber(stats.subscribers || 0)}</strong></span>
+                        {ch.platform !== 'instagram' && (
+                          <span className="flex items-center gap-1"><Eye size={13} /> 조회수 <strong className="text-white">{formatNumber(stats.totalViews || 0)}</strong></span>
+                        )}
+                        <span className="flex items-center gap-1"><Video size={13} /> {ch.platform === 'instagram' ? '게시물' : '영상'} <strong className="text-white">{formatNumber(stats.videoCount || 0)}</strong></span>
                       </div>
                     </div>
                   </div>
                   {/* 주요 KPI 3개 — 크게 */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-3">
                     {[
-                      { label: '구독자', value: formatNumber(stats.subscribers || 0), icon: Users, color: 'text-red-500', bg: 'bg-red-500/10' },
-                      { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                      {
+                        label: ch.platform === 'instagram' ? '팔로워' : '구독자',
+                        value: formatNumber(stats.subscribers || 0),
+                        icon: Users, color: 'text-red-500', bg: 'bg-red-500/10'
+                      },
+                      ch.platform === 'instagram'
+                        ? { label: '게시물 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-blue-500', bg: 'bg-blue-500/10' }
+                        : { label: '총 조회수', value: formatNumber(stats.totalViews || 0), icon: Eye, color: 'text-blue-500', bg: 'bg-blue-500/10' },
                       { label: '인게이지먼트', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-green-500', bg: 'bg-green-500/10' },
                     ].map((kpi) => (
                       <div key={kpi.label} className="text-center p-4 rounded-xl border border-surface-700 bg-surface-700/30">
@@ -958,9 +986,19 @@ export default function Analytics() {
                   {/* 보조 KPI 3개 — 작게 */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {[
-                      { label: '총 영상 수', value: formatNumber(stats.videoCount || 0), icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-                      { label: '평균 좋아요율', value: `${avgLikeRatio.toFixed(2)}%`, icon: Heart, color: 'text-pink-500', bg: 'bg-pink-500/10' },
-                      { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+                      {
+                        label: ch.platform === 'instagram' ? '총 게시물 수' : '총 영상 수',
+                        value: formatNumber(stats.videoCount || 0),
+                        icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10'
+                      },
+                      {
+                        label: ch.platform === 'instagram' ? '좋아요/팔로워율' : '평균 좋아요율',
+                        value: `${avgLikeRatio.toFixed(2)}%`,
+                        icon: Heart, color: 'text-pink-500', bg: 'bg-pink-500/10'
+                      },
+                      ch.platform === 'instagram'
+                        ? { label: '인게이지먼트율', value: `${engagement.toFixed(2)}%`, icon: Activity, color: 'text-orange-500', bg: 'bg-orange-500/10' }
+                        : { label: '조회/구독 비율', value: `${viewsPerSub}%`, icon: TrendingUp, color: 'text-orange-500', bg: 'bg-orange-500/10' },
                     ].map((kpi) => (
                       <div key={kpi.label} className="text-center p-3 rounded-lg border border-surface-700">
                         <div className={`inline-flex p-1.5 rounded-lg ${kpi.bg} mb-1.5`}>
@@ -978,12 +1016,12 @@ export default function Analytics() {
                   <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5">
                     <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                       <Activity size={15} className="text-green-500" />
-                      최근 영상 성과 분석 ({chVideos.length}개)
+                      최근 {ch.platform === 'instagram' ? '게시물' : '영상'} 성과 분석 ({chVideos.length}개)
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
                       <div className="text-center p-3 bg-blue-500/10 rounded-lg">
-                        <p className="text-[10px] text-blue-500 mb-1">평균 조회수</p>
-                        <p className="text-base font-bold text-blue-400">{formatNumber(avgViews)}</p>
+                        <p className="text-[10px] text-blue-500 mb-1">{ch.platform === 'instagram' ? '—' : '평균 조회수'}</p>
+                        <p className="text-base font-bold text-blue-400">{ch.platform === 'instagram' ? 'N/A' : formatNumber(avgViews)}</p>
                       </div>
                       <div className="text-center p-3 bg-pink-500/10 rounded-lg">
                         <p className="text-[10px] text-pink-500 mb-1">평균 좋아요</p>
@@ -1009,11 +1047,11 @@ export default function Analytics() {
                         <thead>
                           <tr className="bg-surface-700 text-gray-400 text-[11px]">
                             <th className="text-left px-3 py-2.5 font-medium w-8">#</th>
-                            <th className="text-left px-3 py-2.5 font-medium">영상</th>
-                            <th className="text-right px-3 py-2.5 font-medium">조회수</th>
+                            <th className="text-left px-3 py-2.5 font-medium">{ch.platform === 'instagram' ? '게시물' : '영상'}</th>
+                            <th className="text-right px-3 py-2.5 font-medium">{ch.platform === 'instagram' ? '—' : '조회수'}</th>
                             <th className="text-right px-3 py-2.5 font-medium">좋아요</th>
                             <th className="text-right px-3 py-2.5 font-medium">댓글</th>
-                            <th className="text-right px-3 py-2.5 font-medium">좋아요율</th>
+                            <th className="text-right px-3 py-2.5 font-medium">{ch.platform === 'instagram' ? '좋아요율' : '좋아요율'}</th>
                             <th className="text-right px-3 py-2.5 font-medium">인게이지먼트</th>
                             <th className="text-right px-3 py-2.5 font-medium">게시일</th>
                           </tr>
@@ -1037,7 +1075,7 @@ export default function Analytics() {
                                     <span className="text-xs font-medium text-gray-300 line-clamp-2 hover:text-brand-400">{v.title}</span>
                                   </a>
                                 </td>
-                                <td className="text-right px-3 py-2.5 text-xs font-semibold text-gray-300">{formatNumber(v.views)}</td>
+                                <td className="text-right px-3 py-2.5 text-xs font-semibold text-gray-300">{ch.platform === 'instagram' ? '—' : formatNumber(v.views)}</td>
                                 <td className="text-right px-3 py-2.5 text-xs text-pink-400">{formatNumber(v.likes)}</td>
                                 <td className="text-right px-3 py-2.5 text-xs text-brand-400">{formatNumber(v.comments)}</td>
                                 <td className="text-right px-3 py-2.5 text-xs text-gray-400">{v.likeRatio.toFixed(2)}%</td>
@@ -1059,7 +1097,7 @@ export default function Analytics() {
             <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
               <h2 className="text-sm font-semibold text-gray-300 mb-4 flex items-center gap-1.5">
                 <TrendingUp size={15} className="text-brand-400" />
-                구독자 성장 추이 (최근 30일)
+                구독자/팔로워 성장 추이 (최근 30일)
               </h2>
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={growthData}>
@@ -1723,7 +1761,9 @@ export default function Analytics() {
                         </h3>
                         <div className="flex items-center justify-between text-xs text-gray-400 mb-1.5">
                           <div className="flex items-center gap-2.5">
-                            <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
+                            {(video.platform || 'youtube') !== 'instagram' && (
+                              <span className="flex items-center gap-0.5"><Eye size={12} />{formatNumber(video.views)}</span>
+                            )}
                             <span className="flex items-center gap-0.5"><ThumbsUp size={12} />{formatNumber(video.likes)}</span>
                             <span className="flex items-center gap-0.5"><MessageCircle size={12} />{formatNumber(video.comments)}</span>
                           </div>
@@ -1754,9 +1794,12 @@ export default function Analytics() {
           <div className="bg-surface-800 rounded-xl shadow-sm p-5 border border-surface-700">
             <div className="flex items-center gap-2 mb-1">
               <MessageCircle size={18} className="text-brand-500" />
-              <h2 className="text-base font-bold text-white">YouTube 댓글 AI 분석</h2>
+              <h2 className="text-base font-bold text-white">댓글 AI 분석</h2>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium flex items-center gap-0.5">
+                <Youtube size={10} /> YouTube 전용
+              </span>
             </div>
-            <p className="text-xs text-gray-400 mb-5">자사 채널 영상의 댓글을 수집하고 Claude AI로 감성 분석합니다</p>
+            <p className="text-xs text-gray-400 mb-5">YouTube 영상의 댓글을 수집하고 Claude AI로 감성 분석합니다 (Instagram은 댓글 API를 지원하지 않습니다)</p>
 
             {channels.filter(ch => ch.is_own).length === 0 ? (
               <div className="text-center py-8 text-sm text-gray-400">
@@ -1774,7 +1817,7 @@ export default function Analytics() {
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {enrichedVideos
-                      .filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId))))
+                      .filter(v => channels.find(ch => ch.is_own && (ch.channel_id === (v.channel_id || v.channelId))) && (v.platform || 'youtube') === 'youtube')
                       .slice(0, 9)
                       .map((v) => (
                         <button
