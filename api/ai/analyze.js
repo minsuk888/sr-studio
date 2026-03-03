@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     };
 
     const requestBody = JSON.stringify({
-      model: 'claude-haiku-4-5',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
       system: systemPrompts[feature] || systemPrompts.dashboard,
       messages: [{ role: 'user', content: `${context}\n\n${prompt}` }],

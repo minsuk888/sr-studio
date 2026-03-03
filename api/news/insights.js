@@ -74,7 +74,7 @@ ${articleList}
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 전문 분석가입니다. 수집된 뉴스를 분석하고 요청된 JSON 형식으로만 응답합니다. JSON 외에 다른 텍스트는 절대 출력하지 않습니다.',
         messages: [

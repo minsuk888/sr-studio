@@ -92,7 +92,7 @@ ${competitorSummary}
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube/Instagram 채널 데이터와 콘텐츠 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다. 콘텐츠 유형(VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)을 분류하고, 유형별 성과를 비교 분석합니다. 게시 주기와 최적 업로드 타이밍도 분석합니다.',
         messages: [

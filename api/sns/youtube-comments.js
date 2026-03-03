@@ -111,7 +111,7 @@ sentiment 값: "positive", "neutral", "negative" 중 하나`;
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         system: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 소셜미디어 분석가입니다. YouTube 댓글을 분석하여 시청자 감성, 핵심 피드백, 콘텐츠 개선 인사이트를 제공합니다. 항상 구체적이고 실행 가능한 제안을 합니다.',
         messages: [{ role: 'user', content: userMessage }],

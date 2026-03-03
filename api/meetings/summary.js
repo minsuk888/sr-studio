@@ -57,7 +57,7 @@ ${minutes || '회의록 없음'}
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2048,
         system: '당신은 슈퍼레이스(Super Race) 마케팅 팀의 회의 분석 전문가입니다. 회의록을 읽고 핵심 내용을 요약하며, 결정사항과 액션 아이템을 명확하게 추출합니다.',
         messages: [{ role: 'user', content: userMessage }],
