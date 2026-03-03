@@ -1,7 +1,8 @@
 // Vercel Serverless Function — 회의록 AI 요약
 // POST /api/meetings/summary  body: { title, date, agendas, minutes, attendees }
-import { handleCors } from '../_utils/security.js';
+import { handleCors, getAdminClient } from '../_utils/security.js';
 import { callGemini, getGeminiKey } from '../_utils/gemini.js';
+import { checkAiRateLimit, logAiCall } from '../_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -12,6 +13,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const admin = getAdminClient();
+    const rateCheck = await checkAiRateLimit(admin);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: '일일 AI 분석 한도(30회)를 초과했습니다. 내일 다시 시도해주세요.', used: rateCheck.used, limit: rateCheck.limit });
+    }
+
     const { title = '', date = '', agendas = [], minutes = '', attendees = [] } = req.body || {};
 
     if (!minutes && agendas.length === 0) {
@@ -55,6 +62,8 @@ ${minutes || '회의록 없음'}
       systemPrompt: '당신은 슈퍼레이스(Super Race) 마케팅 팀의 회의 분석 전문가입니다. 회의록을 읽고 핵심 내용을 요약하며, 결정사항과 액션 아이템을 명확하게 추출합니다.',
       userMessage,
     });
+
+    await logAiCall(admin, 'meetings');
 
     return res.status(200).json({
       summary: text,

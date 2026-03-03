@@ -1,7 +1,8 @@
 // Vercel Serverless Function — Gemini AI SNS 성과 인사이트
 // POST /api/sns/insights  body: { channels, videos, competitors }
-import { handleCors } from '../_utils/security.js';
+import { handleCors, getAdminClient } from '../_utils/security.js';
 import { callGemini, getGeminiKey } from '../_utils/gemini.js';
+import { checkAiRateLimit, logAiCall } from '../_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -12,6 +13,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const admin = getAdminClient();
+    const rateCheck = await checkAiRateLimit(admin);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: '일일 AI 분석 한도(30회)를 초과했습니다. 내일 다시 시도해주세요.', used: rateCheck.used, limit: rateCheck.limit });
+    }
+
     const { channels = [], videos = [], competitors = [] } = req.body || {};
 
     if (channels.length === 0 && videos.length === 0) {
@@ -89,6 +96,8 @@ ${competitorSummary}
       systemPrompt: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 SNS 전문 분석가입니다. YouTube/Instagram 채널 데이터와 콘텐츠 성과를 분석하고, 데이터 기반의 실질적 마케팅 인사이트를 제공합니다. 항상 구체적인 수치를 인용하며 실행 가능한 제안을 합니다. 콘텐츠 유형(VLOG, 하이라이트, 인터뷰, 숏폼, 리뷰 등)을 분류하고, 유형별 성과를 비교 분석합니다. 게시 주기와 최적 업로드 타이밍도 분석합니다.',
       userMessage,
     });
+
+    await logAiCall(admin, 'sns');
 
     return res.status(200).json({
       insight: text,

@@ -1,7 +1,8 @@
 // Vercel Serverless Function — Gemini AI 뉴스 인사이트
 // POST /api/news/insights  body: { articles: [{ title, summary, date, source, publisher }] }
-import { handleCors } from '../_utils/security.js';
+import { handleCors, getAdminClient } from '../_utils/security.js';
 import { callGemini, getGeminiKey } from '../_utils/gemini.js';
+import { checkAiRateLimit, logAiCall } from '../_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -12,6 +13,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const admin = getAdminClient();
+    const rateCheck = await checkAiRateLimit(admin);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: '일일 AI 분석 한도(30회)를 초과했습니다. 내일 다시 시도해주세요.', used: rateCheck.used, limit: rateCheck.limit });
+    }
+
     const { articles = [] } = req.body || {};
 
     if (articles.length === 0) {
@@ -91,6 +98,8 @@ ${articleList}
       // JSON 파싱 실패 시 코드 펜스만 제거하고 텍스트 사용
       insight = rawText.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '').trim();
     }
+
+    await logAiCall(admin, 'news');
 
     return res.status(200).json({
       insight,

@@ -1,8 +1,9 @@
 // Vercel Serverless Function — YouTube 댓글 수집 + AI 감성 분석 (통합)
 // POST /api/sns/youtube-comments  body: { videoId, maxResults, analyze?, videoTitle? }
 // analyze=true 이면 댓글 수집 후 Gemini AI 감성 분석까지 수행
-import { handleCors } from '../_utils/security.js';
+import { handleCors, getAdminClient } from '../_utils/security.js';
 import { callGemini, getGeminiKey } from '../_utils/gemini.js';
+import { checkAiRateLimit, logAiCall } from '../_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -62,6 +63,12 @@ export default async function handler(req, res) {
     }
 
     // Step 2: AI sentiment analysis with Gemini
+    const admin = getAdminClient();
+    const rateCheck = await checkAiRateLimit(admin);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ comments, totalCount: ytData.pageInfo?.totalResults || comments.length, error: '일일 AI 분석 한도(30회)를 초과했습니다. 내일 다시 시도해주세요.', used: rateCheck.used, limit: rateCheck.limit });
+    }
+
     const geminiKey = getGeminiKey();
     if (!geminiKey) {
       return res.status(200).json({
@@ -131,6 +138,8 @@ sentiment 값: "positive", "neutral", "negative" 중 하나`;
         error: `AI 분석 실패: ${aiErr.message}`,
       });
     }
+
+    await logAiCall(admin, 'youtube-comments');
 
     return res.status(200).json({
       comments,

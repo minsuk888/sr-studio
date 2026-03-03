@@ -2,6 +2,7 @@
 // POST /api/auth  body: { action: 'login'|'change-password', ... }
 
 import { handleCors, getAdminClient, hashPassword, verifyPassword, isHashed } from './_utils/security.js';
+import { logAccess } from './_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -63,8 +64,10 @@ async function handleLogin(req, res) {
     }
 
     if (isValid) {
+      await logAccess(admin, 'login', '로그인 성공').catch(() => {});
       return res.status(200).json({ success: true });
     } else {
+      await logAccess(admin, 'login_fail', '비밀번호 불일치').catch(() => {});
       return res.status(401).json({ success: false, error: '비밀번호가 일치하지 않습니다.' });
     }
   } catch (err) {

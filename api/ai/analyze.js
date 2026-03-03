@@ -1,7 +1,8 @@
 // Vercel Serverless Function — 범용 AI 분석 엔드포인트
 // POST /api/ai/analyze  body: { feature, context, prompt }
-import { handleCors } from '../_utils/security.js';
+import { handleCors, getAdminClient } from '../_utils/security.js';
 import { callGemini, getGeminiKey } from '../_utils/gemini.js';
+import { checkAiRateLimit, logAiCall } from '../_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -12,6 +13,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const admin = getAdminClient();
+    const rateCheck = await checkAiRateLimit(admin);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({ error: '일일 AI 분석 한도(30회)를 초과했습니다. 내일 다시 시도해주세요.', used: rateCheck.used, limit: rateCheck.limit });
+    }
+
     const { feature = 'dashboard', context = '', prompt = '' } = req.body || {};
 
     if (!context && !prompt) {
@@ -32,6 +39,8 @@ export default async function handler(req, res) {
       systemPrompt: systemPrompts[feature] || systemPrompts.dashboard,
       userMessage: `${context}\n\n${prompt}`,
     });
+
+    await logAiCall(admin, feature);
 
     return res.status(200).json({
       insight: text,
