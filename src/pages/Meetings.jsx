@@ -46,6 +46,14 @@ function renderInsightText(text) {
     .join('');
 }
 
+// meeting_minutes가 객체 또는 배열로 반환될 수 있음 (unique 제약 조건 때문)
+function getMinutes(meeting) {
+  const mins = meeting?.meeting_minutes;
+  if (!mins) return null;
+  if (Array.isArray(mins)) return mins[0] || null;
+  return mins; // 객체인 경우
+}
+
 export default function Meetings() {
   const { members, addTask } = useApp();
   const [meetings, setMeetings] = useState([]);
@@ -140,7 +148,7 @@ export default function Meetings() {
     prevSelectedIdRef.current = selectedId;
 
     if (selected) {
-      const mins = selected.meeting_minutes?.[0];
+      const mins = getMinutes(selected);
       setMinutesContent(mins?.content || '');
       setMinutesDirty(false);
       setAutoSaveStatus(null);
@@ -162,7 +170,7 @@ export default function Meetings() {
         setMeetings((prev) =>
           prev.map((m) =>
             m.id === currentId
-              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: currentId, content: currentContent }] }
+              ? { ...m, meeting_minutes: { ...(getMinutes(m) || {}), meeting_id: currentId, content: currentContent } }
               : m,
           ),
         );
@@ -349,7 +357,7 @@ export default function Meetings() {
         setMeetings((prev) =>
           prev.map((m) =>
             m.id === selected.id
-              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: liveMinutesContent }] }
+              ? { ...m, meeting_minutes: { ...(getMinutes(m) || {}), meeting_id: selected.id, content: liveMinutesContent } }
               : m,
           ),
         );
@@ -371,7 +379,7 @@ export default function Meetings() {
         setMeetings((prev) =>
           prev.map((m) =>
             m.id === selected.id
-              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: finalMinutes }] }
+              ? { ...m, meeting_minutes: { ...(getMinutes(m) || {}), meeting_id: selected.id, content: finalMinutes } }
               : m
           )
         );
@@ -410,7 +418,7 @@ export default function Meetings() {
       setMeetings((prev) =>
         prev.map((m) =>
           m.id === selected.id
-            ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: minutesContent }] }
+            ? { ...m, meeting_minutes: { ...(getMinutes(m) || {}), meeting_id: selected.id, content: minutesContent } }
             : m,
         ),
       );
