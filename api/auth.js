@@ -3,7 +3,7 @@
 // GET  /api/auth?logs=true&type=login&limit=20
 
 import { handleCors, getAdminClient, hashPassword, verifyPassword, isHashed } from './_utils/security.js';
-import { logAccess, DAILY_AI_LIMIT } from './_utils/rateLimit.js';
+import { logAccess, extractClientInfo, DAILY_AI_LIMIT } from './_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
@@ -68,11 +68,13 @@ async function handleLogin(req, res) {
       }
     }
 
+    const clientInfo = extractClientInfo(req);
+
     if (isValid) {
-      await logAccess(admin, 'login', '로그인 성공').catch(() => {});
+      await logAccess(admin, 'login', '로그인 성공', clientInfo).catch(() => {});
       return res.status(200).json({ success: true });
     } else {
-      await logAccess(admin, 'login_fail', '비밀번호 불일치').catch(() => {});
+      await logAccess(admin, 'login_fail', '비밀번호 불일치', clientInfo).catch(() => {});
       return res.status(401).json({ success: false, error: '비밀번호가 일치하지 않습니다.' });
     }
   } catch (err) {
@@ -160,7 +162,7 @@ async function handleGetLogs(req, res) {
     // 로그 조회
     let query = admin
       .from('app_logs')
-      .select('id, type, feature, detail, created_at')
+      .select('id, type, feature, detail, ip, location, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 

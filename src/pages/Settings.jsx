@@ -356,7 +356,14 @@ export default function Settings() {
             <div className="space-y-1.5">
               {accessLogs.map((log) => (
                 <div key={log.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-surface-700/50 text-xs">
-                  <span className="text-gray-400">{formatDate(log.created_at)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400">{formatDate(log.created_at)}</span>
+                    {log.ip && (
+                      <span className="text-gray-500" title={log.location || ''}>
+                        {log.location || log.ip}
+                      </span>
+                    )}
+                  </div>
                   {log.type === 'login' ? (
                     <span className="flex items-center gap-1 text-green-400">
                       <CheckCircle2 className="w-3 h-3" /> 성공

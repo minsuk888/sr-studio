@@ -49,19 +49,39 @@ export async function logAiCall(admin, feature) {
 }
 
 /**
- * 접속 로그 기록
+ * 접속 로그 기록 (IP/지역 포함)
  * @param {import('@supabase/supabase-js').SupabaseClient} admin
  * @param {'login'|'login_fail'} type
  * @param {string} detail
+ * @param {{ ip?: string, location?: string }} [meta]
  */
-export async function logAccess(admin, type, detail) {
+export async function logAccess(admin, type, detail, meta = {}) {
   const { error } = await admin
     .from('app_logs')
-    .insert({ type, detail });
+    .insert({ type, detail, ip: meta.ip || null, location: meta.location || null });
 
   if (error) {
     console.error('Access log error:', error);
   }
+}
+
+/**
+ * Vercel 요청 헤더에서 IP + 지역 정보 추출
+ * @param {import('http').IncomingMessage} req
+ * @returns {{ ip: string, location: string }}
+ */
+export function extractClientInfo(req) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+    || req.headers['x-real-ip']
+    || 'unknown';
+
+  const country = req.headers['x-vercel-ip-country'] || '';
+  const city = req.headers['x-vercel-ip-city'] || '';
+
+  const parts = [city, country].filter(Boolean);
+  const location = parts.length > 0 ? decodeURIComponent(parts.join(', ')) : '';
+
+  return { ip, location };
 }
 
 /**
