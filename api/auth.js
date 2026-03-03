@@ -1,11 +1,16 @@
-// Vercel Serverless Function — 서버사이드 인증 (로그인 + 비밀번호 변경)
-// POST /api/auth  body: { action: 'login'|'change-password', ... }
+// Vercel Serverless Function — 서버사이드 인증 + 로그 조회
+// POST /api/auth  body: { action: 'login'|'change-password' }
+// GET  /api/auth?logs=true&type=login&limit=20
 
 import { handleCors, getAdminClient, hashPassword, verifyPassword, isHashed } from './_utils/security.js';
-import { logAccess } from './_utils/rateLimit.js';
+import { logAccess, DAILY_AI_LIMIT } from './_utils/rateLimit.js';
 
 export default async function handler(req, res) {
   if (handleCors(req, res)) return;
+
+  if (req.method === 'GET') {
+    return handleGetLogs(req, res);
+  }
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -129,5 +134,60 @@ async function handleChangePassword(req, res) {
   } catch (err) {
     console.error('Change password error:', err);
     return res.status(500).json({ error: '서버 오류가 발생했습니다.' });
+  }
+}
+
+// ---- 로그 조회 ----
+async function handleGetLogs(req, res) {
+  try {
+    const admin = getAdminClient();
+    const { type, limit: limitStr } = req.query || {};
+    const limit = Math.min(Number(limitStr) || 20, 100);
+
+    // 오늘 AI 사용량 계산 (KST)
+    const now = new Date();
+    const kstOffset = 9 * 60 * 60 * 1000;
+    const kstNow = new Date(now.getTime() + kstOffset);
+    const kstDateStr = kstNow.toISOString().split('T')[0];
+    const todayStart = `${kstDateStr}T00:00:00+09:00`;
+
+    const { count: aiUsedToday } = await admin
+      .from('app_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', 'ai_call')
+      .gte('created_at', todayStart);
+
+    // 로그 조회
+    let query = admin
+      .from('app_logs')
+      .select('id, type, feature, detail, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (type) {
+      if (type === 'login') {
+        query = query.in('type', ['login', 'login_fail']);
+      } else {
+        query = query.eq('type', type);
+      }
+    }
+
+    const { data: logs, error } = await query;
+
+    if (error) {
+      console.error('Logs query error:', error);
+      return res.status(500).json({ error: '로그를 조회할 수 없습니다.' });
+    }
+
+    return res.status(200).json({
+      logs: logs || [],
+      todayAiUsage: {
+        used: aiUsedToday || 0,
+        limit: DAILY_AI_LIMIT,
+      },
+    });
+  } catch (err) {
+    console.error('Get logs error:', err);
+    return res.status(500).json({ error: err.message });
   }
 }

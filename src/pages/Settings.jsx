@@ -69,8 +69,8 @@ export default function Settings() {
       setLogsLoading(true);
       try {
         const [aiRes, loginRes] = await Promise.all([
-          fetch('/api/logs?type=ai_call&limit=10'),
-          fetch('/api/logs?type=login&limit=15'),
+          fetch('/api/auth?type=ai_call&limit=10'),
+          fetch('/api/auth?type=login&limit=15'),
         ]);
 
         if (aiRes.ok) {

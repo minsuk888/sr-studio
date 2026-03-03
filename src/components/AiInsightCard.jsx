@@ -15,7 +15,7 @@ export default function AiInsightCard({
 
   const fetchUsage = useCallback(async () => {
     try {
-      const res = await fetch('/api/logs?type=ai_call&limit=1');
+      const res = await fetch('/api/auth?type=ai_call&limit=1');
       if (res.ok) {
         const data = await res.json();
         if (data.todayAiUsage) {

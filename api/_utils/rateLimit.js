@@ -3,7 +3,7 @@
 // app_logs 테이블 기반 rate limiting (KST 기준 일일 30회)
 // =====================================================
 
-const DAILY_AI_LIMIT = 30;
+export const DAILY_AI_LIMIT = 30;
 
 /**
  * 오늘(KST) AI 호출 횟수를 확인하고 제한 내인지 반환
