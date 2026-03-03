@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NoticeTicker from './NoticeTicker';
 import { Menu, Flag } from 'lucide-react';
 // dark mode v5
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+  const showTicker = location.pathname !== '/news';
 
   return (
     <div className="flex h-screen bg-surface-900">
@@ -36,6 +39,7 @@ export default function Layout() {
           </div>
         </div>
 
+        {showTicker && <NoticeTicker />}
         <Outlet />
       </main>
     </div>

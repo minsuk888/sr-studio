@@ -11,6 +11,7 @@ import News from './pages/News';
 import KPI from './pages/KPI';
 import Meetings from './pages/Meetings';
 import Settings from './pages/Settings';
+import Notices from './pages/Notices';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             }
           >
             <Route path="/" element={<Dashboard />} />
+            <Route path="/notices" element={<Notices />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/analytics" element={<Analytics />} />

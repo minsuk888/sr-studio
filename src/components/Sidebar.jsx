@@ -8,6 +8,7 @@ import {
   Target,
   FileText,
   Settings,
+  Megaphone,
   Flag,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '대시보드' },
+  { to: '/notices', icon: Megaphone, label: '공지사항' },
   { to: '/tasks', icon: ListTodo, label: '업무 관리' },
   { to: '/calendar', icon: CalendarDays, label: '캘린더' },
   { to: '/analytics', icon: BarChart3, label: 'SNS 분석' },
