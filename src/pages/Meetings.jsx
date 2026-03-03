@@ -80,6 +80,11 @@ export default function Meetings() {
   // 라이브 모드
   const [isLiveMode, setIsLiveMode] = useState(false);
 
+  // 자동 저장
+  const [minutesDirty, setMinutesDirty] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | 'saving' | 'saved'
+  const autoSaveTimerRef = useRef(null);
+
   // 중복 등록 방지 ref
   const addingAgendaRef = useRef(false);
   const addingSubAgendaRef = useRef(false);
@@ -120,10 +125,45 @@ export default function Meetings() {
     if (selected) {
       const mins = selected.meeting_minutes?.[0];
       setMinutesContent(mins?.content || '');
+      setMinutesDirty(false);
+      setAutoSaveStatus(null);
       setAiSummary(mins?.ai_summary || '');
       setSelectedAttendees((selected.meeting_attendees || []).map((a) => a.member_id));
     }
-  }, [selected]);
+  }, [selectedId]);
+
+  // 회의록 자동저장 (디바운스 1.5초)
+  useEffect(() => {
+    if (!selected || !minutesDirty) return;
+    clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        setAutoSaveStatus('saving');
+        await meetingsService.saveMinutes(selected.id, minutesContent);
+        setMeetings((prev) =>
+          prev.map((m) =>
+            m.id === selected.id
+              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: minutesContent }] }
+              : m,
+          ),
+        );
+        setMinutesDirty(false);
+        setAutoSaveStatus('saved');
+        setTimeout(() => setAutoSaveStatus((s) => s === 'saved' ? null : s), 2000);
+      } catch (err) {
+        console.error('자동저장 실패:', err);
+        setAutoSaveStatus(null);
+      }
+    }, 1500);
+    return () => clearTimeout(autoSaveTimerRef.current);
+  }, [minutesContent, minutesDirty]);
+
+  // 페이지 이탈 시 즉시 저장
+  useEffect(() => {
+    return () => {
+      clearTimeout(autoSaveTimerRef.current);
+    };
+  }, []);
 
   // 회의 생성
   const handleCreate = async () => {
@@ -266,8 +306,23 @@ export default function Meetings() {
     setIsLiveMode(true);
   };
 
-  // 라이브 모드 종료
-  const handleExitLiveMode = () => {
+  // 라이브 모드 종료 (회의록 내용 저장 후 종료)
+  const handleExitLiveMode = async (liveMinutesContent) => {
+    if (selected && liveMinutesContent?.trim()) {
+      try {
+        await meetingsService.saveMinutes(selected.id, liveMinutesContent);
+        setMinutesContent(liveMinutesContent);
+        setMeetings((prev) =>
+          prev.map((m) =>
+            m.id === selected.id
+              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: liveMinutesContent }] }
+              : m,
+          ),
+        );
+      } catch (err) {
+        console.error('회의록 저장 실패:', err);
+      }
+    }
     setIsLiveMode(false);
   };
 
@@ -311,9 +366,10 @@ export default function Meetings() {
     }
   };
 
-  // 회의록 저장
+  // 회의록 수동 저장
   const handleSaveMinutes = async () => {
     if (!selected) return;
+    clearTimeout(autoSaveTimerRef.current);
     setMinutesSaving(true);
     try {
       await meetingsService.saveMinutes(selected.id, minutesContent);
@@ -324,6 +380,9 @@ export default function Meetings() {
             : m,
         ),
       );
+      setMinutesDirty(false);
+      setAutoSaveStatus('saved');
+      setTimeout(() => setAutoSaveStatus((s) => s === 'saved' ? null : s), 2000);
     } catch (err) {
       alert('회의록 저장 실패: ' + err.message);
     } finally {
@@ -537,6 +596,7 @@ export default function Meetings() {
               members={members}
               agendas={(selected.meeting_agendas || []).sort((a, b) => a.sort_order - b.sort_order)}
               actionItems={selected.meeting_action_items || []}
+              initialMinutes={minutesContent}
               onUpdateAgenda={handleUpdateAgenda}
               onAddActionItem={handleLiveAddAction}
               onExitLiveMode={handleExitLiveMode}
@@ -712,6 +772,12 @@ export default function Meetings() {
                   <h3 className="text-sm font-semibold text-gray-200 flex items-center gap-1.5">
                     <FileText size={15} className="text-emerald-500" />
                     회의록
+                    {autoSaveStatus === 'saving' && (
+                      <span className="text-[10px] text-gray-500 font-normal ml-1">저장 중...</span>
+                    )}
+                    {autoSaveStatus === 'saved' && (
+                      <span className="text-[10px] text-emerald-400 font-normal ml-1">자동저장됨</span>
+                    )}
                   </h3>
                   <button
                     onClick={handleSaveMinutes}
@@ -724,7 +790,7 @@ export default function Meetings() {
                 </div>
                 <textarea
                   value={minutesContent}
-                  onChange={(e) => setMinutesContent(e.target.value)}
+                  onChange={(e) => { setMinutesContent(e.target.value); setMinutesDirty(true); }}
                   placeholder="회의 내용을 기록하세요..."
                   rows={8}
                   className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-y"

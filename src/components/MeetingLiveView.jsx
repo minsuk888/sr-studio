@@ -18,6 +18,7 @@ export default function MeetingLiveView({
   members,
   agendas = [],
   actionItems = [],
+  initialMinutes = '',
   onUpdateAgenda,
   onAddActionItem,
   onExitLiveMode,
@@ -27,7 +28,7 @@ export default function MeetingLiveView({
   const [meetingElapsed, setMeetingElapsed] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [quickActionTitle, setQuickActionTitle] = useState('');
-  const [liveMinutes, setLiveMinutes] = useState('');
+  const [liveMinutes, setLiveMinutes] = useState(initialMinutes);
   const [minutesSaveStatus, setMinutesSaveStatus] = useState(null);
   const [rightTab, setRightTab] = useState('minutes');
 
@@ -108,6 +109,11 @@ export default function MeetingLiveView({
     onCompleteMeeting(liveMinutes);
   };
 
+  // ---- Exit with save ----
+  const handleExit = useCallback(() => {
+    onExitLiveMode(liveMinutes);
+  }, [onExitLiveMode, liveMinutes]);
+
   // ---- Keyboard shortcuts ----
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -115,7 +121,7 @@ export default function MeetingLiveView({
       if (tag === 'textarea' || tag === 'input') return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        onExitLiveMode();
+        handleExit();
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         setIsPaused((prev) => !prev);
@@ -123,7 +129,7 @@ export default function MeetingLiveView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onExitLiveMode]);
+  }, [handleExit]);
 
   // ---- Progress ----
   const doneCount = allItems.filter((a) => a.status === 'done').length;
@@ -158,7 +164,7 @@ export default function MeetingLiveView({
       <div className="flex items-center justify-between px-4 lg:px-6 py-3 bg-surface-950 border-b border-surface-700 shrink-0">
         {/* Left: Exit */}
         <button
-          onClick={onExitLiveMode}
+          onClick={handleExit}
           className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all cursor-pointer"
         >
           <LogOut size={16} className="rotate-180" />
