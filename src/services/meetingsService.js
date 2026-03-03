@@ -123,18 +123,37 @@ export const meetingsService = {
     return data;
   },
 
-  // 회의록
+  // 회의록 — SELECT 후 INSERT/UPDATE (upsert + generated always as identity 충돌 방지)
   async saveMinutes(meetingId, content) {
-    const { data, error } = await supabase
+    const now = new Date().toISOString();
+
+    // 기존 레코드 확인
+    const { data: existing } = await supabase
       .from('meeting_minutes')
-      .upsert(
-        { meeting_id: meetingId, content, updated_at: new Date().toISOString() },
-        { onConflict: 'meeting_id' },
-      )
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
+      .select('id')
+      .eq('meeting_id', meetingId)
+      .maybeSingle();
+
+    if (existing) {
+      // UPDATE
+      const { data, error } = await supabase
+        .from('meeting_minutes')
+        .update({ content, updated_at: now })
+        .eq('meeting_id', meetingId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      // INSERT
+      const { data, error } = await supabase
+        .from('meeting_minutes')
+        .insert({ meeting_id: meetingId, content, updated_at: now })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
   },
 
   async saveAiSummary(meetingId, aiSummary) {

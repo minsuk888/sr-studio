@@ -85,6 +85,14 @@ export default function Meetings() {
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null | 'saving' | 'saved'
   const autoSaveTimerRef = useRef(null);
 
+  // Ref로 최신 값 추적 (unmount/beforeunload 시 stale closure 방지)
+  const minutesContentRef = useRef(minutesContent);
+  const minutesDirtyRef = useRef(minutesDirty);
+  const selectedIdRef = useRef(selectedId);
+  minutesContentRef.current = minutesContent;
+  minutesDirtyRef.current = minutesDirty;
+  selectedIdRef.current = selectedId;
+
   // 중복 등록 방지 ref
   const addingAgendaRef = useRef(false);
   const addingSubAgendaRef = useRef(false);
@@ -120,8 +128,17 @@ export default function Meetings() {
     }));
   }, [selected]);
 
-  // 회의 선택 시 상태 초기화
+  // 회의 선택 시 — 이전 회의 dirty 내용 먼저 저장 후 초기화
+  const prevSelectedIdRef = useRef(null);
   useEffect(() => {
+    // 이전 회의에 dirty 내용이 있으면 즉시 저장
+    if (prevSelectedIdRef.current && prevSelectedIdRef.current !== selectedId && minutesDirtyRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+      meetingsService.saveMinutes(prevSelectedIdRef.current, minutesContentRef.current)
+        .catch((err) => console.error('회의 전환 시 저장 실패:', err));
+    }
+    prevSelectedIdRef.current = selectedId;
+
     if (selected) {
       const mins = selected.meeting_minutes?.[0];
       setMinutesContent(mins?.content || '');
@@ -134,16 +151,18 @@ export default function Meetings() {
 
   // 회의록 자동저장 (디바운스 1.5초)
   useEffect(() => {
-    if (!selected || !minutesDirty) return;
+    if (!selectedId || !minutesDirty) return;
     clearTimeout(autoSaveTimerRef.current);
+    const currentId = selectedId;
+    const currentContent = minutesContent;
     autoSaveTimerRef.current = setTimeout(async () => {
       try {
         setAutoSaveStatus('saving');
-        await meetingsService.saveMinutes(selected.id, minutesContent);
+        await meetingsService.saveMinutes(currentId, currentContent);
         setMeetings((prev) =>
           prev.map((m) =>
-            m.id === selected.id
-              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: selected.id, content: minutesContent }] }
+            m.id === currentId
+              ? { ...m, meeting_minutes: [{ ...(m.meeting_minutes?.[0] || {}), meeting_id: currentId, content: currentContent }] }
               : m,
           ),
         );
@@ -156,12 +175,27 @@ export default function Meetings() {
       }
     }, 1500);
     return () => clearTimeout(autoSaveTimerRef.current);
-  }, [minutesContent, minutesDirty]);
+  }, [minutesContent, minutesDirty, selectedId]);
 
-  // 페이지 이탈 시 즉시 저장
+  // 페이지 이탈 시 즉시 저장 (fire-and-forget) + beforeunload
   useEffect(() => {
-    return () => {
+    const flushSave = () => {
       clearTimeout(autoSaveTimerRef.current);
+      if (minutesDirtyRef.current && selectedIdRef.current) {
+        // fire-and-forget: 비동기 저장 시작 (await하지 않음)
+        meetingsService.saveMinutes(selectedIdRef.current, minutesContentRef.current)
+          .catch((err) => console.error('이탈 시 저장 실패:', err));
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      flushSave();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      flushSave(); // React unmount 시에도 저장
     };
   }, []);
 
