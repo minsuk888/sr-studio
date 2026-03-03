@@ -31,7 +31,6 @@ export default async function handler(req, res) {
       apiKey,
       systemPrompt: systemPrompts[feature] || systemPrompts.dashboard,
       userMessage: `${context}\n\n${prompt}`,
-      maxTokens: 2048,
     });
 
     return res.status(200).json({

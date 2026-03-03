@@ -112,7 +112,6 @@ sentiment 값: "positive", "neutral", "negative" 중 하나`;
         apiKey: geminiKey,
         systemPrompt: '당신은 슈퍼레이스(Super Race) 모터스포츠 마케팅 팀의 소셜미디어 분석가입니다. YouTube 댓글을 분석하여 시청자 감성, 핵심 피드백, 콘텐츠 개선 인사이트를 제공합니다. 항상 구체적이고 실행 가능한 제안을 합니다.',
         userMessage,
-        maxTokens: 4096,
       });
 
       const jsonMatch = analysisText.match(/```json\s*([\s\S]*?)\s*```/);

@@ -54,7 +54,6 @@ ${minutes || '회의록 없음'}
       apiKey,
       systemPrompt: '당신은 슈퍼레이스(Super Race) 마케팅 팀의 회의 분석 전문가입니다. 회의록을 읽고 핵심 내용을 요약하며, 결정사항과 액션 아이템을 명확하게 추출합니다.',
       userMessage,
-      maxTokens: 2048,
     });
 
     return res.status(200).json({
