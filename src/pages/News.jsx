@@ -364,8 +364,7 @@ export default function News() {
 
                 {/* 일반 인사이트 */}
                 <div
-                  className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
-                  style={{ maxHeight: '600px' }}
+                  className="prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: renderMarkdown(aiInsight) }}
                 />
               </>

@@ -1511,8 +1511,7 @@ export default function Analytics() {
                 {!isContentAiLoading && contentAiInsight && (
                   <div className="px-4 pb-4">
                     <div
-                      className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
-                      style={{ maxHeight: '500px' }}
+                      className="prose-sm max-w-none"
                       dangerouslySetInnerHTML={{ __html: renderMarkdown(contentAiInsight) }}
                     />
                   </div>
@@ -1602,8 +1601,7 @@ export default function Analytics() {
                       {commentAnalysis.analysis && (
                         <div className="prose prose-sm max-w-none">
                           <div
-                            className="overflow-y-auto custom-scrollbar"
-                            style={{ maxHeight: '500px' }}
+                            className="prose-sm max-w-none"
                             dangerouslySetInnerHTML={{ __html: renderMarkdown(commentAnalysis.analysis) }}
                           />
                           <p className="text-xs text-gray-400 mt-3">
@@ -1868,8 +1866,7 @@ export default function Analytics() {
                           </span>
                         </div>
                         <div
-                          className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
-                          style={{ maxHeight: '500px' }}
+                          className="prose-sm max-w-none"
                           dangerouslySetInnerHTML={{ __html: renderMarkdown(commentAnalysis.analysis) }}
                         />
                       </div>
@@ -1994,8 +1991,7 @@ export default function Analytics() {
               </div>
             ) : aiInsight ? (
               <div
-                className="prose-sm max-w-none overflow-y-auto custom-scrollbar"
-                style={{ maxHeight: '600px' }}
+                className="prose-sm max-w-none"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(aiInsight) }}
               />
             ) : (

@@ -8,7 +8,6 @@ export default function AiInsightCard({
   loading,
   onGenerate,
   defaultOpen = false,
-  maxHeight = 500,
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
@@ -35,8 +34,7 @@ export default function AiInsightCard({
           ) : insight ? (
             <>
               <div
-                className="prose-sm max-w-none mb-3 overflow-y-auto custom-scrollbar"
-                style={{ maxHeight: `${maxHeight}px` }}
+                className="prose-sm max-w-none mb-3"
                 dangerouslySetInnerHTML={{ __html: renderMarkdown(insight) }}
               />
               <button
