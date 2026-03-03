@@ -3,7 +3,7 @@
 // Google Gemini 2.0 Flash를 사용한 AI 분석
 // =====================================================
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 /**
