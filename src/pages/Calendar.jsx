@@ -25,17 +25,37 @@ import {
   CalendarDays,
   Pencil,
   Trash2,
+  Users,
+  CalendarCheck,
+  Palmtree,
+  Briefcase,
+  AlertCircle,
+  GraduationCap,
+  Search,
+  Cake,
+  Sun,
+  MoreHorizontal,
+  Car,
 } from 'lucide-react';
 
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
-const PRESET_COLORS = [
-  { name: 'indigo', value: '#6366f1' },
-  { name: 'purple', value: '#8b5cf6' },
-  { name: 'pink', value: '#ec4899' },
-  { name: 'red', value: '#ef4444' },
-  { name: 'amber', value: '#f59e0b' },
+const EVENT_TYPES = [
+  { value: 'meeting',  label: '미팅',    icon: Users,          color: '#6366f1' },
+  { value: 'event',    label: '이벤트',  icon: CalendarCheck,  color: '#8b5cf6' },
+  { value: 'leave',    label: '연차',    icon: Palmtree,       color: '#10b981' },
+  { value: 'business', label: '출장',    icon: Car,            color: '#f59e0b' },
+  { value: 'deadline', label: '마감일',  icon: AlertCircle,    color: '#ef4444' },
+  { value: 'workshop', label: '워크숍',  icon: GraduationCap,  color: '#06b6d4' },
+  { value: 'review',   label: '리뷰',    icon: Search,         color: '#ec4899' },
+  { value: 'birthday', label: '생일',    icon: Cake,           color: '#f97316' },
+  { value: 'holiday',  label: '공휴일',  icon: Sun,            color: '#22c55e' },
+  { value: 'other',    label: '기타',    icon: MoreHorizontal, color: '#64748b' },
 ];
+
+const getEventType = (typeValue) => EVENT_TYPES.find((t) => t.value === typeValue) || EVENT_TYPES[9];
+
+const PRESET_COLORS = EVENT_TYPES.map((t) => ({ name: t.value, value: t.color }));
 
 const PRIORITY_TEXT_COLORS = {
   high: 'text-red-400 bg-red-500/10',
@@ -57,16 +77,23 @@ function getItemsForDay(day, tasks, calendarEvents) {
     }));
 
   const dayEvents = calendarEvents
-    .filter((e) => e.date === dateStr)
-    .map((e) => ({
-      id: e.id,
-      title: e.title,
-      type: e.type,
-      priority: null,
-      color: e.color,
-      rawEvent: e,
-      rawDescription: e.description,
-    }));
+    .filter((e) => {
+      const start = e.date;
+      const end = e.end_date || e.date;
+      return dateStr >= start && dateStr <= end;
+    })
+    .map((e) => {
+      const evType = getEventType(e.type);
+      return {
+        id: e.id,
+        title: e.title,
+        type: e.type,
+        priority: null,
+        color: e.color || evType.color,
+        rawEvent: e,
+        rawDescription: e.description,
+      };
+    });
 
   return [...dayEvents, ...dayTasks];
 }
@@ -80,7 +107,7 @@ export default function Calendar() {
   // modal state — shared for add / edit
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // null = add mode
-  const [eventForm, setEventForm] = useState({ title: '', date: '', type: 'meeting', color: '#6366f1', description: '' });
+  const [eventForm, setEventForm] = useState({ title: '', date: '', end_date: '', type: 'meeting', color: '#6366f1', description: '' });
 
   // delete confirmation
   const [confirmDelete, setConfirmDelete] = useState(null); // { id, name }
@@ -128,13 +155,14 @@ export default function Calendar() {
   const openAddModal = (date) => {
     const dateStr = date ? format(date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
     setEditingEvent(null);
-    setEventForm({ title: '', date: dateStr, type: 'meeting', color: '#6366f1', description: '' });
+    setEventForm({ title: '', date: dateStr, end_date: dateStr, type: 'meeting', color: '#6366f1', description: '' });
     setShowModal(true);
   };
 
   const openEditModal = (event) => {
     setEditingEvent(event);
-    setEventForm({ title: event.title, date: event.date, type: event.type, color: event.color || '#6366f1', description: event.description || '' });
+    const evType = getEventType(event.type);
+    setEventForm({ title: event.title, date: event.date, end_date: event.end_date || event.date, type: event.type, color: event.color || evType.color, description: event.description || '' });
     setShowModal(true);
   };
 
@@ -145,13 +173,19 @@ export default function Calendar() {
 
   const handleSaveEvent = () => {
     if (!eventForm.title.trim() || !eventForm.date) return;
-    const payload = { title: eventForm.title.trim(), date: eventForm.date, type: eventForm.type, color: eventForm.color, description: eventForm.description.trim() || null };
+    const endDate = eventForm.end_date && eventForm.end_date >= eventForm.date ? eventForm.end_date : eventForm.date;
+    const payload = { title: eventForm.title.trim(), date: eventForm.date, end_date: endDate, type: eventForm.type, color: eventForm.color, description: eventForm.description.trim() || null };
     if (editingEvent) {
       updateCalendarEvent(editingEvent.id, payload);
     } else {
       addCalendarEvent(payload);
     }
     closeModal();
+  };
+
+  const handleTypeChange = (typeValue) => {
+    const evType = getEventType(typeValue);
+    setEventForm({ ...eventForm, type: typeValue, color: evType.color });
   };
 
   // --- delete helpers ---
@@ -260,28 +294,50 @@ export default function Calendar() {
               <h3 className="text-lg font-bold text-white">{editingEvent ? '이벤트 수정' : '새 이벤트 추가'}</h3>
               <button onClick={closeModal} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"><X className="w-5 h-5 text-gray-500" /></button>
             </div>
+            <style>{`
+              input[type="date"]::-webkit-calendar-picker-indicator {
+                filter: invert(1);
+                cursor: pointer;
+              }
+            `}</style>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">제목</label>
                 <input type="text" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} placeholder="이벤트 제목을 입력하세요" className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">날짜</label>
-                <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">시작일</label>
+                  <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value, end_date: eventForm.end_date < e.target.value ? e.target.value : eventForm.end_date })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">마감일</label>
+                  <input type="date" value={eventForm.end_date} min={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, end_date: e.target.value })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1.5">유형</label>
-                <select value={eventForm.type} onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })} className="w-full px-3 py-2.5 border border-surface-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-colors bg-surface-900 text-white">
-                  <option value="meeting">미팅</option>
-                  <option value="event">이벤트</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1.5">색상</label>
-                <div className="flex items-center gap-2">
-                  {PRESET_COLORS.map((c) => (
-                    <button key={c.name} onClick={() => setEventForm({ ...eventForm, color: c.value })} className={`w-8 h-8 rounded-full transition-all cursor-pointer ${eventForm.color === c.value ? 'ring-2 ring-offset-2 ring-surface-700 scale-110' : 'hover:scale-105'}`} style={{ backgroundColor: c.value }} />
-                  ))}
+                <div className="grid grid-cols-5 gap-1.5">
+                  {EVENT_TYPES.map((t) => {
+                    const Icon = t.icon;
+                    const isSelected = eventForm.type === t.value;
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => handleTypeChange(t.value)}
+                        className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer border ${
+                          isSelected
+                            ? 'border-white/30 text-white scale-105 shadow-lg'
+                            : 'border-transparent text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                        }`}
+                        style={isSelected ? { backgroundColor: `${t.color}25`, borderColor: `${t.color}60` } : {}}
+                      >
+                        <Icon className="w-4 h-4" style={isSelected ? { color: t.color } : {}} />
+                        {t.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div>
@@ -444,7 +500,7 @@ function WeekViewItem({ item, tasks, calendarEvents, getMemberName, openEditModa
         <Clock className="w-3 h-3 mt-0.5 shrink-0 opacity-80" />
         <span className="font-medium leading-tight">{item.title}</span>
       </div>
-      <div className="text-[10px] opacity-80 mt-1">{item.type === 'meeting' ? '미팅' : '이벤트'}</div>
+      <div className="text-[10px] opacity-80 mt-1">{getEventType(item.type).label}</div>
       {item.rawDescription && (
         <div className="text-[9px] opacity-70 mt-0.5 line-clamp-2">{item.rawDescription}</div>
       )}
