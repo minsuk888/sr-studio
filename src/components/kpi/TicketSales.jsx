@@ -10,6 +10,8 @@ import {
   Target,
   TrendingUp,
   Ticket,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   LineChart,
@@ -48,6 +50,7 @@ export default function TicketSales() {
   const [saleInputs, setSaleInputs] = useState({});
   const [saleMemo, setSaleMemo] = useState('');
   const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const selectedRound = useMemo(
     () => rounds.find((r) => r.id === selectedRoundId),
@@ -130,6 +133,68 @@ export default function TicketSales() {
         합계: cumulativeTotal,
       };
     });
+  }, [sales, seatTypes]);
+
+  // ---- Day-over-day diffs ----
+  const dailyDiffs = useMemo(() => {
+    const diffs = {};
+    for (let i = 0; i < sales.length; i++) {
+      const curr = sales[i].sales || {};
+      const prev = i > 0 ? (sales[i - 1].sales || {}) : null;
+      const diffEntry = {};
+      let currTotal = 0;
+      let prevTotal = 0;
+      seatTypes.forEach((st) => {
+        const c = Number(curr[st.name]) || 0;
+        const p = prev ? (Number(prev[st.name]) || 0) : 0;
+        currTotal += c;
+        prevTotal += p;
+        diffEntry[st.name] = prev ? c - p : null;
+      });
+      diffEntry._total = prev ? currTotal - prevTotal : null;
+      diffs[sales[i].id] = diffEntry;
+    }
+    return diffs;
+  }, [sales, seatTypes]);
+
+  // ---- Copy latest sales for KakaoTalk ----
+  const copyLatestSales = useCallback(() => {
+    if (sales.length === 0) return;
+    const latest = sales[sales.length - 1];
+    const prev = sales.length > 1 ? sales[sales.length - 2] : null;
+    const saleData = latest.sales || {};
+
+    const d = new Date(latest.sale_date + 'T00:00:00');
+    const header = `${d.getMonth() + 1}월${d.getDate()}일`;
+
+    const lines = [header];
+    let totalCurr = 0;
+    let totalPrev = 0;
+
+    seatTypes.forEach((st) => {
+      const curr = Number(saleData[st.name]) || 0;
+      const p = prev ? (Number((prev.sales || {})[st.name]) || 0) : null;
+      totalCurr += curr;
+      if (p != null) totalPrev += p;
+
+      let line = `${st.name} : ${curr.toLocaleString()}매`;
+      if (p != null) {
+        const diff = curr - p;
+        if (diff !== 0) line += `(${diff > 0 ? '+' : ''}${diff.toLocaleString()}매)`;
+      }
+      lines.push(line);
+    });
+
+    let totalLine = `총 : ${totalCurr.toLocaleString()}매`;
+    if (prev) {
+      const totalDiff = totalCurr - totalPrev;
+      if (totalDiff !== 0) totalLine += `(${totalDiff > 0 ? '+' : ''}${totalDiff.toLocaleString()}매)`;
+    }
+    lines.push(totalLine);
+
+    navigator.clipboard.writeText(lines.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }, [sales, seatTypes]);
 
   // ---- Round CRUD ----
@@ -469,9 +534,16 @@ export default function TicketSales() {
       <div className="bg-surface-800 rounded-xl border border-surface-700 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700">
           <h3 className="text-sm font-semibold text-gray-300">일별 판매 기록</h3>
-          <button onClick={openSaleForm} className="flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-400 text-xs font-medium rounded-lg hover:bg-brand-500/20 transition-colors cursor-pointer">
-            <Plus size={13} /> 판매 입력
-          </button>
+          <div className="flex items-center gap-2">
+            {sales.length > 0 && (
+              <button onClick={copyLatestSales} className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer ${copied ? 'bg-green-500/15 text-green-400' : 'bg-surface-700 text-gray-300 hover:bg-surface-600'}`}>
+                {copied ? <><Check size={13} /> 복사됨!</> : <><Copy size={13} /> 내역 복사</>}
+              </button>
+            )}
+            <button onClick={openSaleForm} className="flex items-center gap-1 px-3 py-1.5 bg-brand-500/10 text-brand-400 text-xs font-medium rounded-lg hover:bg-brand-500/20 transition-colors cursor-pointer">
+              <Plus size={13} /> 판매 입력
+            </button>
+          </div>
         </div>
 
         {salesLoading ? (
@@ -500,15 +572,31 @@ export default function TicketSales() {
                 {[...sales].reverse().map((sale) => {
                   const saleData = sale.sales || {};
                   const total = Object.values(saleData).reduce((s, v) => s + (Number(v) || 0), 0);
+                  const diff = dailyDiffs[sale.id] || {};
                   return (
                     <tr key={sale.id} className="border-t border-surface-700/50 hover:bg-white/[0.02] group">
                       <td className="px-4 py-2.5 text-gray-300">{sale.sale_date}</td>
-                      {seatTypes.map((st) => (
-                        <td key={st.name} className="text-right px-3 py-2.5 text-gray-400 tabular-nums">
-                          {(Number(saleData[st.name]) || 0).toLocaleString()}
-                        </td>
-                      ))}
-                      <td className="text-right px-3 py-2.5 font-medium text-white tabular-nums">{total.toLocaleString()}</td>
+                      {seatTypes.map((st) => {
+                        const d = diff[st.name];
+                        return (
+                          <td key={st.name} className="text-right px-3 py-2.5 text-gray-400 tabular-nums">
+                            {(Number(saleData[st.name]) || 0).toLocaleString()}
+                            {d != null && d !== 0 && (
+                              <span className={`ml-1 text-[10px] ${d > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ({d > 0 ? '+' : ''}{d.toLocaleString()})
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="text-right px-3 py-2.5 font-medium text-white tabular-nums">
+                        {total.toLocaleString()}
+                        {diff._total != null && diff._total !== 0 && (
+                          <span className={`ml-1 text-[10px] font-normal ${diff._total > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            ({diff._total > 0 ? '+' : ''}{diff._total.toLocaleString()})
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-gray-500 text-xs truncate max-w-[120px]">{sale.memo || '-'}</td>
                       <td className="px-2">
                         <button onClick={() => handleDeleteSale(sale)} className="p-1 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-all cursor-pointer">
