@@ -429,31 +429,24 @@ export default function TicketSales() {
     <div className="space-y-5">
       {/* Round selector */}
       <div className="bg-surface-800 rounded-xl border border-surface-700 p-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={selectedRoundId || ''}
-            onChange={(e) => setSelectedRoundId(Number(e.target.value))}
-            className="px-3 py-2 rounded-lg bg-surface-700 border border-surface-600 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
-          >
+        {/* 상단: 라운드 버튼들 + 액션 */}
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-1.5 flex-nowrap">
             {rounds.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
+              <button
+                key={r.id}
+                onClick={() => setSelectedRoundId(r.id)}
+                className={`shrink-0 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  r.id === selectedRoundId
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'bg-surface-700 text-gray-400 hover:text-gray-200 hover:bg-surface-600'
+                }`}
+              >
+                {r.name}
+              </button>
             ))}
-          </select>
-
-          {selectedRound && (
-            <div className="flex items-center gap-3 text-xs text-gray-400">
-              {selectedRound.venue && (
-                <span className="flex items-center gap-1"><MapPin size={12} /> {selectedRound.venue}</span>
-              )}
-              {selectedRound.event_date && (
-                <span className="flex items-center gap-1"><Calendar size={12} /> {selectedRound.event_date}</span>
-              )}
-              <span className="flex items-center gap-1"><Target size={12} /> 목표 {(selectedRound.goal || 0).toLocaleString()}석</span>
-              <span>총 {(selectedRound.total_seats || 0).toLocaleString()}석</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1.5 ml-auto">
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto shrink-0">
             <button onClick={openEditRound} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-gray-200 transition-colors cursor-pointer">
               <Pencil size={14} />
             </button>
@@ -465,6 +458,20 @@ export default function TicketSales() {
             </button>
           </div>
         </div>
+
+        {/* 하단: 선택된 라운드 상세 정보 */}
+        {selectedRound && (
+          <div className="flex items-center gap-3 text-xs text-gray-400 mt-3 pt-3 border-t border-surface-700/50">
+            {selectedRound.venue && (
+              <span className="flex items-center gap-1"><MapPin size={12} /> {selectedRound.venue}</span>
+            )}
+            {selectedRound.event_date && (
+              <span className="flex items-center gap-1"><Calendar size={12} /> {selectedRound.event_date}</span>
+            )}
+            <span className="flex items-center gap-1"><Target size={12} /> 목표 {(selectedRound.goal || 0).toLocaleString()}석</span>
+            <span>총 {(selectedRound.total_seats || 0).toLocaleString()}석</span>
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}
