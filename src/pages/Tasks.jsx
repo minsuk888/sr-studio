@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { aiService } from '../services/aiService';
 import AiInsightCard from '../components/AiInsightCard';
+import TaskListView from '../components/tasks/TaskListView';
+import TaskModal from '../components/tasks/TaskModal';
 import {
   Plus,
   Kanban,
@@ -30,40 +32,18 @@ const priorityConfig = {
   low: { label: '낮음', className: 'bg-blue-500/10 text-blue-400' },
 };
 
-// 담당자별 고유 색상 팔레트
 const MEMBER_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#6366f1', // indigo
-  '#e11d48', // rose
-  '#14b8a6', // teal
-  '#84cc16', // lime
-  '#a855f7', // violet
+  '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899',
+  '#06b6d4', '#f97316', '#6366f1', '#e11d48', '#14b8a6',
+  '#84cc16', '#a855f7',
 ];
-
-const emptyForm = {
-  title: '',
-  assignee: '',
-  priority: 'medium',
-  status: 'todo',
-  progress: 0,
-  deadline: '',
-  memo: '',
-};
 
 export default function Tasks() {
   const { tasks, members, addTask, updateTask, deleteTask, addMember, updateMember, deleteMember } = useApp();
 
-  const [viewMode, setViewMode] = useState('kanban');
-  const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [viewMode, setViewMode] = useState('list');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [formData, setFormData] = useState(emptyForm);
   const [filterMember, setFilterMember] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
 
@@ -74,7 +54,7 @@ export default function Tasks() {
   const [memberForm, setMemberForm] = useState({ name: '', role: '', avatar: '👤', email: '' });
 
   // ---- delete confirmation state ----
-  const [confirmDelete, setConfirmDelete] = useState(null); // { type: 'task'|'member', id, name }
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   // ---- AI insight state ----
   const [tasksAi, setTasksAi] = useState(null);
@@ -116,37 +96,20 @@ export default function Tasks() {
   // ---------- modal ----------
   const openAddModal = () => {
     setEditingTask(null);
-    setFormData(emptyForm);
     setModalOpen(true);
   };
 
   const openEditModal = (task) => {
     setEditingTask(task);
-    setFormData({
-      title: task.title,
-      assignee: task.assignee,
-      priority: task.priority,
-      status: task.status,
-      progress: task.progress,
-      deadline: task.deadline || '',
-      memo: task.memo || '',
-    });
     setModalOpen(true);
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setEditingTask(null);
-    setFormData(emptyForm);
   };
 
-  const handleSave = () => {
-    if (!formData.title.trim()) return;
-    const payload = {
-      ...formData,
-      assignee: formData.assignee ? Number(formData.assignee) : members[0]?.id,
-      progress: Number(formData.progress),
-    };
+  const handleSave = (payload) => {
     if (editingTask) {
       updateTask(editingTask.id, payload);
     } else {
@@ -155,7 +118,7 @@ export default function Tasks() {
     closeModal();
   };
 
-  // ---------- drag & drop ----------
+  // ---------- drag & drop (kanban) ----------
   const handleDragStart = (e, taskId) => {
     e.dataTransfer.setData('text/plain', String(taskId));
     e.dataTransfer.effectAllowed = 'move';
@@ -181,7 +144,7 @@ export default function Tasks() {
 
   const handleDragEnd = () => setDragOverColumn(null);
 
-  // ---------- sub-components ----------
+  // ---------- kanban sub-components ----------
   const PriorityBadge = ({ priority }) => {
     const cfg = priorityConfig[priority] || priorityConfig.medium;
     return (
@@ -191,29 +154,6 @@ export default function Tasks() {
     );
   };
 
-  const StatusBadge = ({ status }) => {
-    const cfg = statusConfig[status] || statusConfig.todo;
-    return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color} ${cfg.textColor}`}>
-        {cfg.label}
-      </span>
-    );
-  };
-
-  const ProgressBar = ({ value, showLabel = false }) => {
-    const color =
-      value >= 100 ? 'bg-emerald-500' : value >= 50 ? 'bg-blue-500' : value > 0 ? 'bg-amber-500' : 'bg-gray-600';
-    return (
-      <div className="flex items-center gap-2">
-        <div className="flex-1 h-1.5 bg-surface-700 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${value}%` }} />
-        </div>
-        {showLabel && <span className="text-xs text-gray-400 w-8 text-right">{value}%</span>}
-      </div>
-    );
-  };
-
-  // ---------- task card (kanban — compact) ----------
   const TaskCard = ({ task }) => {
     const member = getMember(task.assignee);
     const memberColor = getMemberColor(task.assignee);
@@ -228,7 +168,6 @@ export default function Tasks() {
         style={{ borderLeftWidth: '3px', borderLeftColor: memberColor }}
       >
         <div className="px-3 py-2">
-          {/* 제목 + 우선순위 + 액션 */}
           <div className="flex items-center gap-1.5">
             <h4 className="text-[13px] font-medium text-white truncate flex-1">{task.title}</h4>
             <PriorityBadge priority={task.priority} />
@@ -241,7 +180,6 @@ export default function Tasks() {
               </button>
             </div>
           </div>
-          {/* 담당자 · 마감일 · 진행률 */}
           <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-500">
             {member && (
               <span className="flex items-center gap-1 font-medium" style={{ color: memberColor }}>
@@ -256,7 +194,6 @@ export default function Tasks() {
               </>
             )}
             <span className="flex-1" />
-            {/* 미니 진행률 바 */}
             <div className="w-14 h-1 bg-surface-700 rounded-full overflow-hidden shrink-0">
               <div className="h-full rounded-full transition-all" style={{ width: `${task.progress}%`, backgroundColor: progressColor }} />
             </div>
@@ -267,7 +204,6 @@ export default function Tasks() {
     );
   };
 
-  // ---------- kanban column ----------
   const KanbanColumn = ({ status }) => {
     const cfg = statusConfig[status];
     const Icon = cfg.icon;
@@ -279,9 +215,7 @@ export default function Tasks() {
         onDragOver={(e) => handleDragOver(e, status)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, status)}
-        className={`flex-1 min-w-[260px] transition-colors ${
-          isDragOver ? 'ring-2 ring-brand-400 rounded-xl' : ''
-        }`}
+        className={`flex-1 min-w-[260px] transition-colors ${isDragOver ? 'ring-2 ring-brand-400 rounded-xl' : ''}`}
       >
         <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg mb-2 ${cfg.headerColor}`}>
           <Icon className={`w-3.5 h-3.5 ${cfg.textColor}`} />
@@ -301,166 +235,6 @@ export default function Tasks() {
       </div>
     );
   };
-
-  // ---------- list view (담당자별 그룹) ----------
-  const toggleGroup = (groupId) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(groupId)) next.delete(groupId);
-      else next.add(groupId);
-      return next;
-    });
-  };
-
-  const getGroupedTasks = () => {
-    const groups = new Map();
-    filteredTasks.forEach((task) => {
-      const key = task.assignee || 'unassigned';
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(task);
-    });
-
-    const sorted = [];
-    members.forEach((m) => {
-      if (groups.has(m.id)) {
-        sorted.push({ id: m.id, member: m, tasks: groups.get(m.id) });
-      }
-    });
-    if (groups.has('unassigned')) {
-      sorted.push({ id: 'unassigned', member: null, tasks: groups.get('unassigned') });
-    }
-    return sorted;
-  };
-
-  const ListView = () => {
-    const groups = getGroupedTasks();
-
-    if (filteredTasks.length === 0) {
-      return (
-        <div className="bg-surface-800 rounded-xl border border-surface-700 px-5 py-10 text-center text-gray-500 text-sm">
-          등록된 업무가 없습니다.
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {groups.map((group) => {
-          const isOpen = expandedGroups.has(group.id);
-          const memberColor = group.member ? getMemberColor(group.member.id) : '#6b7280';
-          const todoCount = group.tasks.filter((t) => t.status === 'todo').length;
-          const progressCount = group.tasks.filter((t) => t.status === 'in-progress').length;
-          const doneCount = group.tasks.filter((t) => t.status === 'done').length;
-          const totalProgress = group.tasks.length > 0
-            ? Math.round(group.tasks.reduce((sum, t) => sum + (t.progress || 0), 0) / group.tasks.length)
-            : 0;
-          const hasOverdue = group.tasks.some((t) => t.deadline && t.status !== 'done' && t.deadline < new Date().toISOString().split('T')[0]);
-
-          return (
-            <div key={group.id} className="bg-surface-800 rounded-xl border border-surface-700 overflow-hidden">
-              {/* 그룹 헤더 */}
-              <button
-                onClick={() => toggleGroup(group.id)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
-              >
-                {/* 아바타 */}
-                <div
-                  className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
-                  style={{ backgroundColor: `${memberColor}15` }}
-                >
-                  {group.member ? group.member.avatar : '📋'}
-                </div>
-
-                {/* 이름 + 역할 */}
-                <div className="text-left min-w-0">
-                  <div className="text-sm font-semibold text-white truncate">
-                    {group.member ? group.member.name : '미배정'}
-                  </div>
-                  {group.member && (
-                    <div className="text-[11px] text-gray-500 truncate">{group.member.role}</div>
-                  )}
-                </div>
-
-                {/* 상태 카운트 뱃지 */}
-                <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                  {todoCount > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-700 text-gray-400">
-                      <ListTodo className="w-3 h-3" /> {todoCount}
-                    </span>
-                  )}
-                  {progressCount > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400">
-                      <Clock className="w-3 h-3" /> {progressCount}
-                    </span>
-                  )}
-                  {doneCount > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400">
-                      <CircleCheckBig className="w-3 h-3" /> {doneCount}
-                    </span>
-                  )}
-                  {hasOverdue && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="마감 초과 업무 있음" />
-                  )}
-                </div>
-
-                {/* 진행률 미니바 */}
-                <div className="flex items-center gap-2 shrink-0 w-20">
-                  <div className="flex-1 h-1.5 bg-surface-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${totalProgress >= 100 ? 'bg-emerald-500' : totalProgress >= 50 ? 'bg-blue-500' : totalProgress > 0 ? 'bg-amber-500' : 'bg-gray-600'}`}
-                      style={{ width: `${totalProgress}%` }}
-                    />
-                  </div>
-                  <span className="text-[11px] text-gray-500 w-7 text-right">{totalProgress}%</span>
-                </div>
-
-                {/* 토글 */}
-                {isOpen
-                  ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
-                  : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
-              </button>
-
-              {/* 업무 목록 (펼침) */}
-              {isOpen && (
-                <div className="border-t border-surface-700">
-                  {group.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="group flex items-center gap-3 px-4 py-2.5 border-b border-surface-700/50 last:border-b-0 hover:bg-white/[0.03] transition-colors"
-                      style={{ borderLeftWidth: '3px', borderLeftColor: memberColor }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-white truncate block">{task.title}</span>
-                        {task.memo && <span className="text-[11px] text-gray-600 truncate block">{task.memo}</span>}
-                      </div>
-                      <StatusBadge status={task.status} />
-                      <PriorityBadge priority={task.priority} />
-                      <div className="w-24 shrink-0">
-                        <ProgressBar value={task.progress} showLabel />
-                      </div>
-                      <span className="text-xs text-gray-500 w-20 shrink-0 text-right">
-                        {task.deadline || '-'}
-                      </span>
-                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                        <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // TaskModal and MemberModal are rendered inline (not as inner components) to preserve input focus
 
   // ---------- member modal handlers ----------
   const avatarOptions = ['👤', '🧑‍💼', '👩‍💻', '🧑‍🎨', '🎬', '📊', '📰', '🧑‍🔬', '👨‍💻', '👩‍🎤', '🧑‍🚀', '🎯'];
@@ -510,8 +284,6 @@ export default function Tasks() {
     }
     setConfirmDelete(null);
   };
-
-  // (MemberModal rendered inline below)
 
   // ==================== RENDER ====================
   return (
@@ -611,74 +383,26 @@ export default function Tasks() {
           <KanbanColumn status="done" />
         </div>
       ) : (
-        <ListView />
+        <TaskListView
+          filteredTasks={filteredTasks}
+          members={members}
+          getMemberColor={getMemberColor}
+          openEditModal={openEditModal}
+          handleDeleteTask={handleDeleteTask}
+          updateTask={updateTask}
+          addTask={addTask}
+          filterMember={filterMember}
+        />
       )}
 
-      {/* ===== Task Modal (inline) ===== */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative bg-surface-800 rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 z-10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-white">{editingTask ? '업무 수정' : '새 업무 추가'}</h3>
-              <button onClick={closeModal} className="p-1 rounded-lg hover:bg-white/5 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">제목</label>
-                <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="업무 제목을 입력하세요" className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">담당자</label>
-                  <select value={formData.assignee} onChange={(e) => setFormData({ ...formData, assignee: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                    <option value="">선택하세요</option>
-                    {members.map((m) => (
-                      <option key={m.id} value={m.id}>{m.avatar} {m.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">우선순위</label>
-                  <select value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                    <option value="high">높음</option>
-                    <option value="medium">보통</option>
-                    <option value="low">낮음</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">상태</label>
-                  <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition">
-                    <option value="todo">할 일</option>
-                    <option value="in-progress">진행 중</option>
-                    <option value="done">완료</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">마감일</label>
-                  <input type="date" value={formData.deadline} onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">진행률 <span className="text-brand-500 font-bold">{formData.progress}%</span></label>
-                <input type="range" min="0" max="100" value={formData.progress} onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })} className="w-full accent-brand-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">메모</label>
-                <textarea rows={3} value={formData.memo} onChange={(e) => setFormData({ ...formData, memo: e.target.value })} placeholder="업무 관련 메모를 작성하세요" className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition resize-none" />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-surface-700">
-              <button onClick={closeModal} className="px-4 py-2 rounded-lg text-sm font-medium text-gray-400 hover:bg-white/5 transition-colors cursor-pointer">취소</button>
-              <button onClick={handleSave} className="px-5 py-2 rounded-lg text-sm font-medium text-white bg-brand-500 hover:bg-brand-600 transition-colors cursor-pointer">{editingTask ? '수정' : '저장'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Task Modal */}
+      <TaskModal
+        isOpen={modalOpen}
+        editingTask={editingTask}
+        members={members}
+        onSave={handleSave}
+        onClose={closeModal}
+      />
 
       {/* ===== Member Modal (inline) ===== */}
       {memberModalOpen && (
