@@ -5,7 +5,7 @@ import {
   ChevronDown,
   ChevronUp,
   CircleCheckBig,
-  Clock,
+  Settings,
   ListTodo,
   Plus,
 } from 'lucide-react';
@@ -13,9 +13,9 @@ import {
 const statusOrder = ['in-progress', 'todo', 'done'];
 
 const statusLabels = {
-  'in-progress': { label: '진행 중', icon: Clock, textColor: 'text-blue-400', borderColor: 'border-blue-500/20' },
-  todo: { label: '할 일', icon: ListTodo, textColor: 'text-gray-400', borderColor: 'border-surface-600' },
-  done: { label: '완료', icon: CircleCheckBig, textColor: 'text-emerald-400', borderColor: 'border-emerald-500/20' },
+  'in-progress': { label: '진행 중', icon: Settings, textColor: 'text-blue-400', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20', badgeBg: 'bg-blue-500/15', iconAnimate: 'animate-spin-slow' },
+  todo: { label: '할 일', icon: ListTodo, textColor: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20', badgeBg: 'bg-amber-500/15', iconAnimate: '' },
+  done: { label: '완료', icon: CircleCheckBig, textColor: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20', badgeBg: 'bg-emerald-500/15', iconAnimate: '' },
 };
 
 const nextStatus = { todo: 'in-progress', 'in-progress': 'done', done: 'todo' };
@@ -145,7 +145,7 @@ export default function TaskListView({
       <button
         onClick={onClick}
         title="클릭하여 상태 변경"
-        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer hover:ring-1 hover:ring-white/20 ${cfg.textColor} bg-surface-700/60`}
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors cursor-pointer hover:ring-1 hover:ring-white/20 ${cfg.textColor} ${cfg.badgeBg}`}
       >
         {cfg.label}
       </button>
@@ -326,7 +326,7 @@ export default function TaskListView({
                 )}
                 {progressCount > 0 && (
                   <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400">
-                    <Clock className="w-3 h-3" /> {progressCount}
+                    <Settings className="w-3 h-3" /> {progressCount}
                   </span>
                 )}
                 {doneCount > 0 && (
@@ -373,10 +373,10 @@ export default function TaskListView({
                   return (
                     <div key={status}>
                       {/* sub-group header */}
-                      <div className={`flex items-center gap-2 px-5 py-1.5 border-b ${cfg.borderColor} bg-surface-800/50`}>
-                        <Icon className={`w-3 h-3 ${cfg.textColor}`} />
-                        <span className={`text-[11px] font-semibold ${cfg.textColor}`}>{cfg.label}</span>
-                        <span className={`text-[11px] ${cfg.textColor} opacity-60`}>({items.length})</span>
+                      <div className={`flex items-center gap-2 px-5 py-2 border-b ${cfg.borderColor} ${cfg.bgColor}`}>
+                        <Icon className={`w-3.5 h-3.5 ${cfg.textColor} ${cfg.iconAnimate}`} />
+                        <span className={`text-xs font-semibold ${cfg.textColor}`}>{cfg.label}</span>
+                        <span className={`text-xs ${cfg.textColor} opacity-60`}>({items.length})</span>
                       </div>
                       {items.map((task) => (
                         <TaskRow key={task.id} task={task} memberColor={memberColor} />
