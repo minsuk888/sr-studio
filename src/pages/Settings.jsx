@@ -358,9 +358,9 @@ export default function Settings() {
                 <div key={log.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-surface-700/50 text-xs">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-400">{formatDate(log.created_at)}</span>
-                    {log.ip && (
-                      <span className="text-gray-500" title={log.location || ''}>
-                        {log.location || log.ip}
+                    {(log.ip || log.location) && (
+                      <span className="text-gray-500">
+                        {[log.location, log.ip].filter(Boolean).join(' · ')}
                       </span>
                     )}
                   </div>

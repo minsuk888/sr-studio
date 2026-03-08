@@ -60,6 +60,7 @@ export default function Tasks() {
   const { tasks, members, addTask, updateTask, deleteTask, addMember, updateMember, deleteMember } = useApp();
 
   const [viewMode, setViewMode] = useState('kanban');
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [formData, setFormData] = useState(emptyForm);
@@ -301,54 +302,163 @@ export default function Tasks() {
     );
   };
 
-  // ---------- list view ----------
-  const ListView = () => (
-    <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden border border-surface-700">
-      <div className="grid grid-cols-[2fr_1fr_100px_100px_140px_110px_80px] gap-4 px-5 py-3 bg-surface-700 text-xs font-semibold text-gray-400 uppercase tracking-wider border-b border-surface-700">
-        <span>업무</span>
-        <span>담당자</span>
-        <span>상태</span>
-        <span>우선순위</span>
-        <span>진행률</span>
-        <span>마감일</span>
-        <span className="text-right">액션</span>
-      </div>
-      {filteredTasks.length === 0 && (
-        <div className="px-5 py-10 text-center text-gray-500 text-sm">등록된 업무가 없습니다.</div>
-      )}
-      {filteredTasks.map((task) => {
-        const member = getMember(task.assignee);
-        return (
-          <div
-            key={task.id}
-            className="group grid grid-cols-[2fr_1fr_100px_100px_140px_110px_80px] gap-4 px-5 py-3.5 items-center border-b border-surface-700 hover:bg-white/5 transition-colors"
-          >
-            <span className="text-sm font-medium text-white truncate">{task.title}</span>
-            <div className="flex items-center gap-2">
-              {member && (
-                <>
-                  <span className="text-base leading-none">{member.avatar}</span>
-                  <span className="text-xs text-gray-400">{member.name}</span>
-                </>
+  // ---------- list view (담당자별 그룹) ----------
+  const toggleGroup = (groupId) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
+      return next;
+    });
+  };
+
+  const getGroupedTasks = () => {
+    const groups = new Map();
+    filteredTasks.forEach((task) => {
+      const key = task.assignee || 'unassigned';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(task);
+    });
+
+    const sorted = [];
+    members.forEach((m) => {
+      if (groups.has(m.id)) {
+        sorted.push({ id: m.id, member: m, tasks: groups.get(m.id) });
+      }
+    });
+    if (groups.has('unassigned')) {
+      sorted.push({ id: 'unassigned', member: null, tasks: groups.get('unassigned') });
+    }
+    return sorted;
+  };
+
+  const ListView = () => {
+    const groups = getGroupedTasks();
+
+    if (filteredTasks.length === 0) {
+      return (
+        <div className="bg-surface-800 rounded-xl border border-surface-700 px-5 py-10 text-center text-gray-500 text-sm">
+          등록된 업무가 없습니다.
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {groups.map((group) => {
+          const isOpen = expandedGroups.has(group.id);
+          const memberColor = group.member ? getMemberColor(group.member.id) : '#6b7280';
+          const todoCount = group.tasks.filter((t) => t.status === 'todo').length;
+          const progressCount = group.tasks.filter((t) => t.status === 'in-progress').length;
+          const doneCount = group.tasks.filter((t) => t.status === 'done').length;
+          const totalProgress = group.tasks.length > 0
+            ? Math.round(group.tasks.reduce((sum, t) => sum + (t.progress || 0), 0) / group.tasks.length)
+            : 0;
+          const hasOverdue = group.tasks.some((t) => t.deadline && t.status !== 'done' && t.deadline < new Date().toISOString().split('T')[0]);
+
+          return (
+            <div key={group.id} className="bg-surface-800 rounded-xl border border-surface-700 overflow-hidden">
+              {/* 그룹 헤더 */}
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
+              >
+                {/* 아바타 */}
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0"
+                  style={{ backgroundColor: `${memberColor}15` }}
+                >
+                  {group.member ? group.member.avatar : '📋'}
+                </div>
+
+                {/* 이름 + 역할 */}
+                <div className="text-left min-w-0">
+                  <div className="text-sm font-semibold text-white truncate">
+                    {group.member ? group.member.name : '미배정'}
+                  </div>
+                  {group.member && (
+                    <div className="text-[11px] text-gray-500 truncate">{group.member.role}</div>
+                  )}
+                </div>
+
+                {/* 상태 카운트 뱃지 */}
+                <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                  {todoCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-surface-700 text-gray-400">
+                      <ListTodo className="w-3 h-3" /> {todoCount}
+                    </span>
+                  )}
+                  {progressCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-500/10 text-blue-400">
+                      <Clock className="w-3 h-3" /> {progressCount}
+                    </span>
+                  )}
+                  {doneCount > 0 && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-400">
+                      <CircleCheckBig className="w-3 h-3" /> {doneCount}
+                    </span>
+                  )}
+                  {hasOverdue && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="마감 초과 업무 있음" />
+                  )}
+                </div>
+
+                {/* 진행률 미니바 */}
+                <div className="flex items-center gap-2 shrink-0 w-20">
+                  <div className="flex-1 h-1.5 bg-surface-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${totalProgress >= 100 ? 'bg-emerald-500' : totalProgress >= 50 ? 'bg-blue-500' : totalProgress > 0 ? 'bg-amber-500' : 'bg-gray-600'}`}
+                      style={{ width: `${totalProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-gray-500 w-7 text-right">{totalProgress}%</span>
+                </div>
+
+                {/* 토글 */}
+                {isOpen
+                  ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
+                  : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />}
+              </button>
+
+              {/* 업무 목록 (펼침) */}
+              {isOpen && (
+                <div className="border-t border-surface-700">
+                  {group.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="group flex items-center gap-3 px-4 py-2.5 border-b border-surface-700/50 last:border-b-0 hover:bg-white/[0.03] transition-colors"
+                      style={{ borderLeftWidth: '3px', borderLeftColor: memberColor }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-white truncate block">{task.title}</span>
+                        {task.memo && <span className="text-[11px] text-gray-600 truncate block">{task.memo}</span>}
+                      </div>
+                      <StatusBadge status={task.status} />
+                      <PriorityBadge priority={task.priority} />
+                      <div className="w-24 shrink-0">
+                        <ProgressBar value={task.progress} showLabel />
+                      </div>
+                      <span className="text-xs text-gray-500 w-20 shrink-0 text-right">
+                        {task.deadline || '-'}
+                      </span>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            <StatusBadge status={task.status} />
-            <PriorityBadge priority={task.priority} />
-            <ProgressBar value={task.progress} showLabel />
-            <span className="text-xs text-gray-500">{task.deadline || '-'}</span>
-            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => openEditModal(task)} className="p-1 rounded-md hover:bg-white/5 text-gray-500 hover:text-gray-200 transition-colors cursor-pointer">
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => handleDeleteTask(task)} className="p-1 rounded-md hover:bg-red-500/10 text-gray-500 hover:text-red-500 transition-colors cursor-pointer">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+          );
+        })}
+      </div>
+    );
+  };
 
   // TaskModal and MemberModal are rendered inline (not as inner components) to preserve input focus
 
