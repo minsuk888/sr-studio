@@ -276,7 +276,7 @@ export default function TicketSales() {
         setRounds((prev) => prev.map((r) => (r.id === editingRound.id ? updated : r)));
       } else {
         const created = await ticketService.createRound(payload);
-        setRounds((prev) => [created, ...prev]);
+        setRounds((prev) => [...prev, created]);
         setSelectedRoundId(created.id);
       }
       setShowRoundModal(false);

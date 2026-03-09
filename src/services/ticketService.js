@@ -6,7 +6,7 @@ export const ticketService = {
     const { data, error } = await supabase
       .from('ticket_rounds')
       .select('*')
-      .order('event_date', { ascending: false });
+      .order('created_at', { ascending: true });
     if (error) throw error;
     return data;
   },
