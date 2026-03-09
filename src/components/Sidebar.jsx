@@ -6,6 +6,7 @@ import {
   BarChart3,
   Newspaper,
   Target,
+  TrendingUp,
   FileText,
   Settings,
   Megaphone,
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/analytics', icon: BarChart3, label: 'SNS 분석' },
   { to: '/news', icon: Newspaper, label: '뉴스 스크랩' },
   { to: '/kpi', icon: Target, label: 'KPI 관리' },
+  { to: '/trends', icon: TrendingUp, label: '모터스포츠 트렌드' },
   { to: '/meetings', icon: FileText, label: '회의록' },
   { to: '/settings', icon: Settings, label: '관리자 설정' },
 ];

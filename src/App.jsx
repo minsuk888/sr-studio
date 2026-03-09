@@ -9,6 +9,7 @@ import Calendar from './pages/Calendar';
 import Analytics from './pages/Analytics';
 import News from './pages/News';
 import KPI from './pages/KPI';
+import Trends from './pages/Trends';
 import Meetings from './pages/Meetings';
 import Settings from './pages/Settings';
 import Notices from './pages/Notices';
@@ -33,6 +34,7 @@ function App() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/news" element={<News />} />
             <Route path="/kpi" element={<KPI />} />
+            <Route path="/trends" element={<Trends />} />
             <Route path="/meetings" element={<Meetings />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
