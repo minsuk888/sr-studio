@@ -28,6 +28,37 @@ import { ticketService } from '../../services/ticketService';
 
 const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
 
+function RaceCarDot({ cx, cy, index, dataLength, payload }) {
+  if (index !== dataLength - 1) return null;
+  const carW = 36;
+  const carH = 18;
+  const total = payload?.합계 ?? '';
+  return (
+    <g>
+      <image
+        x={cx - carW / 2}
+        y={cy - carH - 4}
+        width={carW}
+        height={carH}
+        href="/racecar.png"
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+      >
+        <animateTransform
+          attributeName="transform"
+          type="translate"
+          values={`0,0; 0,-3; 0,0`}
+          dur="0.8s"
+          repeatCount="indefinite"
+        />
+      </image>
+      <circle cx={cx} cy={cy} r={3} fill="#e6edf3" stroke="#0d1117" strokeWidth={1.5} />
+      <text x={cx} y={cy + 16} textAnchor="middle" fill="#e6edf3" fontSize={11} fontWeight="bold">
+        {total}
+      </text>
+    </g>
+  );
+}
+
 export default function TicketSales() {
   const [rounds, setRounds] = useState([]);
   const [selectedRoundId, setSelectedRoundId] = useState(null);
@@ -506,7 +537,7 @@ export default function TicketSales() {
         <div className="bg-surface-800 rounded-xl border border-surface-700 p-4">
           <h3 className="text-sm font-semibold text-gray-300 mb-4">판매 현황 추이</h3>
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData}>
+            <LineChart data={chartData} margin={{ top: 24, right: 50, bottom: 0, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
               <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} />
               <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
@@ -520,9 +551,16 @@ export default function TicketSales() {
                 <ReferenceLine y={selectedRound.goal} stroke="#ef4444" strokeDasharray="5 5" label={{ value: '목표', fill: '#ef4444', fontSize: 11 }} />
               )}
               {seatTypes.map((st, idx) => (
-                <Line key={st.name} type="monotone" dataKey={st.name} stroke={CHART_COLORS[idx % CHART_COLORS.length]} strokeWidth={2} dot={false} />
+                <Line key={st.name} type="monotone" dataKey={st.name} stroke={CHART_COLORS[idx % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 3, fill: CHART_COLORS[idx % CHART_COLORS.length] }} />
               ))}
-              <Line type="monotone" dataKey="합계" stroke="#e6edf3" strokeWidth={2} strokeDasharray="4 2" dot={false} />
+              <Line
+                type="monotone"
+                dataKey="합계"
+                stroke="#e6edf3"
+                strokeWidth={2}
+                strokeDasharray="4 2"
+                dot={(props) => <RaceCarDot key={props.index} {...props} dataLength={chartData.length} />}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
