@@ -93,44 +93,35 @@ export default function TicketSales() {
     })();
   }, [selectedRoundId]);
 
-  // ---- Summary stats ----
+  // ---- Summary stats (최신 날짜 = 현재 누적 판매량) ----
   const summary = useMemo(() => {
     if (!selectedRound || sales.length === 0) return null;
+    const latest = sales[sales.length - 1];
+    const saleData = latest.sales || {};
     const totals = {};
-    seatTypes.forEach((st) => { totals[st.name] = 0; });
     let grandTotal = 0;
-    sales.forEach((s) => {
-      const saleData = s.sales || {};
-      Object.entries(saleData).forEach(([key, val]) => {
-        const num = Number(val) || 0;
-        totals[key] = (totals[key] || 0) + num;
-        grandTotal += num;
-      });
+    seatTypes.forEach((st) => {
+      const num = Number(saleData[st.name]) || 0;
+      totals[st.name] = num;
+      grandTotal += num;
     });
     const goalPct = selectedRound.goal > 0 ? Math.round((grandTotal / selectedRound.goal) * 100) : 0;
     return { totals, grandTotal, goalPct };
   }, [sales, selectedRound, seatTypes]);
 
-  // ---- Cumulative chart data ----
+  // ---- Chart data (입력값 = 이미 누적 판매량) ----
   const chartData = useMemo(() => {
     if (sales.length === 0 || seatTypes.length === 0) return [];
-    const cumulative = {};
-    seatTypes.forEach((st) => { cumulative[st.name] = 0; });
-    let cumulativeTotal = 0;
-
     return sales.map((s) => {
       const saleData = s.sales || {};
       let dayTotal = 0;
       seatTypes.forEach((st) => {
-        const val = Number(saleData[st.name]) || 0;
-        cumulative[st.name] += val;
-        dayTotal += val;
+        dayTotal += Number(saleData[st.name]) || 0;
       });
-      cumulativeTotal += dayTotal;
       return {
         date: s.sale_date.slice(5),
-        ...Object.fromEntries(seatTypes.map((st) => [st.name, cumulative[st.name]])),
-        합계: cumulativeTotal,
+        ...Object.fromEntries(seatTypes.map((st) => [st.name, Number(saleData[st.name]) || 0])),
+        합계: dayTotal,
       };
     });
   }, [sales, seatTypes]);
@@ -513,7 +504,7 @@ export default function TicketSales() {
       {/* Cumulative chart */}
       {chartData.length > 1 && (
         <div className="bg-surface-800 rounded-xl border border-surface-700 p-4">
-          <h3 className="text-sm font-semibold text-gray-300 mb-4">누적 판매 추이</h3>
+          <h3 className="text-sm font-semibold text-gray-300 mb-4">판매 현황 추이</h3>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
