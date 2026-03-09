@@ -6,8 +6,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import Calendar from './pages/Calendar';
-import Analytics from './pages/Analytics';
-import News from './pages/News';
 import KPI from './pages/KPI';
 import Trends from './pages/Trends';
 import Meetings from './pages/Meetings';
@@ -31,8 +29,6 @@ function App() {
             <Route path="/notices" element={<Notices />} />
             <Route path="/tasks" element={<Tasks />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/news" element={<News />} />
             <Route path="/kpi" element={<KPI />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/meetings" element={<Meetings />} />
