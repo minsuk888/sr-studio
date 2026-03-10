@@ -249,57 +249,60 @@ export default function SuperraceMonitor() {
         )}
       </div>
 
-      {/* 필터 탭 + 정렬 */}
-      {!loading && (flatYoutube.length > 0 || flatNews.length > 0 || flatBlog.length > 0 || flatCafe.length > 0) && (
+      {/* 정렬 버튼 — 항상 표시 */}
+      {keywords.length > 0 && (
         <div className="flex items-center justify-between gap-2 flex-wrap">
+          {/* 필터 탭 — 결과 있을 때만 */}
           <div className="flex items-center gap-2 flex-wrap">
-            {[
-              { id: 'all', label: '전체', count: flatYoutube.length + flatNews.length + flatBlog.length + flatCafe.length },
-              { id: 'youtube', label: 'YouTube', icon: Youtube, count: flatYoutube.length },
-              { id: 'news', label: '뉴스', icon: Newspaper, count: flatNews.length },
-              { id: 'blog', label: '블로그', icon: BookOpen, count: flatBlog.length },
-              { id: 'cafe', label: '카페', icon: MessageSquare, count: flatCafe.length },
-            ].map((f) => {
-              const Icon = f.icon;
-              return (
-                <button
-                  key={f.id}
-                  onClick={() => setActiveFilter(f.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                    activeFilter === f.id
-                      ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-                      : 'bg-surface-800 text-gray-400 border border-surface-700 hover:bg-white/5'
-                  }`}
-                >
-                  {Icon && <Icon size={12} />}
-                  {f.label}
-                  <span className="text-[10px] opacity-70">({f.count})</span>
-                </button>
-              );
-            })}
+            {!loading && (flatYoutube.length > 0 || flatNews.length > 0 || flatBlog.length > 0 || flatCafe.length > 0) && (
+              [
+                { id: 'all', label: '전체', count: flatYoutube.length + flatNews.length + flatBlog.length + flatCafe.length },
+                { id: 'youtube', label: 'YouTube', icon: Youtube, count: flatYoutube.length },
+                { id: 'news', label: '뉴스', icon: Newspaper, count: flatNews.length },
+                { id: 'blog', label: '블로그', icon: BookOpen, count: flatBlog.length },
+                { id: 'cafe', label: '카페', icon: MessageSquare, count: flatCafe.length },
+              ].map((f) => {
+                const Icon = f.icon;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setActiveFilter(f.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                      activeFilter === f.id
+                        ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                        : 'bg-surface-800 text-gray-400 border border-surface-700 hover:bg-white/5'
+                    }`}
+                  >
+                    {Icon && <Icon size={12} />}
+                    {f.label}
+                    <span className="text-[10px] opacity-70">({f.count})</span>
+                  </button>
+                );
+              })
+            )}
           </div>
-          {/* 정렬 버튼 */}
-          <div className="flex items-center gap-1 bg-surface-800 border border-surface-700 rounded-lg p-0.5">
+          {/* 정렬 토글 */}
+          <div className="flex items-center gap-1 bg-surface-700 border border-surface-600 rounded-lg p-0.5 shrink-0">
             <button
               onClick={() => handleSortChange('date')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 sortMode === 'date'
-                  ? 'bg-surface-700 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <Clock size={11} />
+              <Clock size={12} />
               최신순
             </button>
             <button
               onClick={() => handleSortChange('relevance')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                 sortMode === 'relevance'
-                  ? 'bg-surface-700 text-white'
-                  : 'text-gray-500 hover:text-gray-300'
+                  ? 'bg-brand-500 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <ArrowUpDown size={11} />
+              <ArrowUpDown size={12} />
               정확도순
             </button>
           </div>
@@ -380,6 +383,7 @@ function YoutubeCard({ item }) {
 
 // ---- 뉴스 카드 ----
 function NewsCard({ item }) {
+  const isNaver = item.source === 'naver';
   return (
     <a
       href={item.url || '#'}
@@ -387,14 +391,14 @@ function NewsCard({ item }) {
       rel="noopener noreferrer"
       className="flex gap-3 p-3 rounded-lg border border-surface-700 bg-surface-800 hover:bg-white/5 transition-colors group"
     >
-      <div className="w-28 h-[72px] rounded bg-surface-700 flex items-center justify-center flex-shrink-0">
-        <Newspaper size={20} className="text-gray-600" />
+      <div className={`w-28 h-[72px] rounded flex items-center justify-center flex-shrink-0 ${isNaver ? 'bg-green-500/10' : 'bg-blue-500/10'}`}>
+        <Newspaper size={20} className={isNaver ? 'text-green-500/60' : 'text-blue-500/60'} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 mb-1">
-          <Newspaper size={11} className="text-blue-500 flex-shrink-0" />
-          <span className="text-[10px] text-blue-400 font-medium">
-            {item.source === 'naver' ? '네이버' : '구글'}
+          <Newspaper size={11} className={`flex-shrink-0 ${isNaver ? 'text-green-500' : 'text-blue-500'}`} />
+          <span className={`text-[10px] font-medium ${isNaver ? 'text-green-400' : 'text-blue-400'}`}>
+            {isNaver ? '네이버 뉴스' : '구글 뉴스'}
           </span>
           {item.publisher && (
             <span className="text-[10px] text-gray-600 truncate">{item.publisher}</span>
