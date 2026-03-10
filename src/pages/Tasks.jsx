@@ -144,6 +144,9 @@ export default function Tasks() {
 
   const handleDragEnd = () => setDragOverColumn(null);
 
+  // ---------- kanban done column collapse ----------
+  const [kanbanDoneExpanded, setKanbanDoneExpanded] = useState(false);
+
   // ---------- kanban sub-components ----------
   const PriorityBadge = ({ priority }) => {
     const cfg = priorityConfig[priority] || priorityConfig.medium;
@@ -209,6 +212,8 @@ export default function Tasks() {
     const Icon = cfg.icon;
     const columnTasks = tasksByStatus(status);
     const isDragOver = dragOverColumn === status;
+    const isDone = status === 'done';
+    const showCards = !isDone || kanbanDoneExpanded;
 
     return (
       <div
@@ -224,14 +229,33 @@ export default function Tasks() {
             {columnTasks.length}
           </span>
         </div>
-        <div className="flex flex-col gap-1.5">
-          {columnTasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
-          ))}
-          {columnTasks.length === 0 && (
-            <div className="text-center text-xs text-gray-600 py-6">업무 없음</div>
-          )}
-        </div>
+        {isDone && columnTasks.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {/* Collapsible toggle */}
+            <button
+              onClick={() => setKanbanDoneExpanded((prev) => !prev)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 hover:bg-white/5 transition-all cursor-pointer"
+            >
+              <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${kanbanDoneExpanded ? 'rotate-0' : '-rotate-90'}`} />
+              <span className="text-xs text-gray-400">완료된 업무</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                {columnTasks.length}건
+              </span>
+            </button>
+            {showCards && columnTasks.map((task) => (
+              <TaskCard key={task.id} task={task} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {columnTasks.map((task) => (
+              <TaskCard key={task.id} task={task} />
+            ))}
+            {columnTasks.length === 0 && (
+              <div className="text-center text-xs text-gray-600 py-6">업무 없음</div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
