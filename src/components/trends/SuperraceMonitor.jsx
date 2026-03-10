@@ -10,6 +10,9 @@ import {
   Youtube,
   Newspaper,
   Clock,
+  BookOpen,
+  MessageSquare,
+  ArrowUpDown,
 } from 'lucide-react';
 import { trendService } from '../../services/trendService';
 
@@ -32,10 +35,13 @@ export default function SuperraceMonitor() {
   const [newKeyword, setNewKeyword] = useState('');
   const [youtubeResults, setYoutubeResults] = useState([]);
   const [newsResults, setNewsResults] = useState([]);
+  const [blogResults, setBlogResults] = useState([]);
+  const [cafeResults, setCafeResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastFetched, setLastFetched] = useState(null);
-  const [activeFilter, setActiveFilter] = useState('all'); // all | youtube | news
+  const [activeFilter, setActiveFilter] = useState('all'); // all | youtube | news | blog | cafe
+  const [sortMode, setSortMode] = useState('date'); // date | relevance
 
   // 키워드 로드
   const loadKeywords = useCallback(async () => {
@@ -50,18 +56,22 @@ export default function SuperraceMonitor() {
   }, []);
 
   // 자동 검색
-  const autoSearch = useCallback(async (kws) => {
+  const autoSearch = useCallback(async (kws, sort = 'date') => {
     if (!kws || kws.length === 0) {
       setYoutubeResults([]);
       setNewsResults([]);
+      setBlogResults([]);
+      setCafeResults([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const { youtube, news } = await trendService.searchAllKeywords(kws);
+      const { youtube, news, blog, cafe } = await trendService.searchAllKeywords(kws, sort);
       setYoutubeResults(youtube);
       setNewsResults(news);
+      setBlogResults(blog || []);
+      setCafeResults(cafe || []);
       const fetchTimes = youtube.map((r) => r.fetchedAt).filter(Boolean);
       if (fetchTimes.length > 0) {
         setLastFetched(new Date(Math.max(...fetchTimes.map((t) => new Date(t).getTime()))));
@@ -77,17 +87,28 @@ export default function SuperraceMonitor() {
   useEffect(() => {
     (async () => {
       const kws = await loadKeywords();
-      await autoSearch(kws);
+      await autoSearch(kws, sortMode);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 정렬 변경 시 재검색
+  const handleSortChange = (newSort) => {
+    if (newSort === sortMode) return;
+    setSortMode(newSort);
+    if (keywords.length > 0) {
+      autoSearch(keywords, newSort);
+    }
+  };
 
   // 강제 새로고침
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const { youtube, news } = await trendService.forceRefreshAll(keywords);
+      const { youtube, news, blog, cafe } = await trendService.forceRefreshAll(keywords, sortMode);
       setYoutubeResults(youtube);
       setNewsResults(news);
+      setBlogResults(blog || []);
+      setCafeResults(cafe || []);
       setLastFetched(new Date());
     } catch (err) {
       console.error('새로고침 실패:', err);
@@ -107,7 +128,7 @@ export default function SuperraceMonitor() {
       const updated = [...keywords, created];
       setKeywords(updated);
       setNewKeyword('');
-      await autoSearch(updated);
+      await autoSearch(updated, sortMode);
     } catch (err) {
       console.error('키워드 추가 실패:', err);
     }
@@ -119,27 +140,38 @@ export default function SuperraceMonitor() {
       await trendService.removeKeyword(id);
       const updated = keywords.filter((kw) => kw.id !== id);
       setKeywords(updated);
-      await autoSearch(updated);
+      await autoSearch(updated, sortMode);
     } catch (err) {
       console.error('키워드 삭제 실패:', err);
     }
   };
 
-  // YouTube 결과 평탄화
+  // 결과 평탄화
   const flatYoutube = youtubeResults.flatMap((r) =>
     (r.results || []).map((item) => ({ ...item, _keyword: r.keyword, _type: 'youtube' })),
   );
-
-  // 뉴스 결과에 타입 추가
   const flatNews = newsResults.map((a) => ({ ...a, _type: 'news' }));
+  const flatBlog = blogResults.map((a) => ({ ...a, _type: 'blog' }));
+  const flatCafe = cafeResults.map((a) => ({ ...a, _type: 'cafe' }));
 
   // 필터 적용
-  const filteredItems =
-    activeFilter === 'youtube'
-      ? flatYoutube
-      : activeFilter === 'news'
-        ? flatNews
-        : [...flatYoutube, ...flatNews];
+  const filterMap = {
+    all: [...flatYoutube, ...flatNews, ...flatBlog, ...flatCafe],
+    youtube: flatYoutube,
+    news: flatNews,
+    blog: flatBlog,
+    cafe: flatCafe,
+  };
+  const filteredItems = filterMap[activeFilter] || filterMap.all;
+
+  // 최신순 정렬 (date 모드에서 전체 탭일 때 날짜 기준 통합 정렬)
+  const sortedItems = sortMode === 'date' && activeFilter === 'all'
+    ? [...filteredItems].sort((a, b) => {
+        const dateA = a.publishedAt || a.date || '';
+        const dateB = b.publishedAt || b.date || '';
+        return dateB.localeCompare(dateA);
+      })
+    : filteredItems;
 
   const cachedCount = youtubeResults.filter((r) => r.fromCache).length;
   const totalYoutubeKws = youtubeResults.length;
@@ -217,31 +249,60 @@ export default function SuperraceMonitor() {
         )}
       </div>
 
-      {/* 필터 탭 */}
-      {!loading && (flatYoutube.length > 0 || flatNews.length > 0) && (
-        <div className="flex items-center gap-2">
-          {[
-            { id: 'all', label: '전체', count: flatYoutube.length + flatNews.length },
-            { id: 'youtube', label: 'YouTube', icon: Youtube, count: flatYoutube.length },
-            { id: 'news', label: '뉴스', icon: Newspaper, count: flatNews.length },
-          ].map((f) => {
-            const Icon = f.icon;
-            return (
-              <button
-                key={f.id}
-                onClick={() => setActiveFilter(f.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-                  activeFilter === f.id
-                    ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
-                    : 'bg-surface-800 text-gray-400 border border-surface-700 hover:bg-white/5'
-                }`}
-              >
-                {Icon && <Icon size={12} />}
-                {f.label}
-                <span className="text-[10px] opacity-70">({f.count})</span>
-              </button>
-            );
-          })}
+      {/* 필터 탭 + 정렬 */}
+      {!loading && (flatYoutube.length > 0 || flatNews.length > 0 || flatBlog.length > 0 || flatCafe.length > 0) && (
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            {[
+              { id: 'all', label: '전체', count: flatYoutube.length + flatNews.length + flatBlog.length + flatCafe.length },
+              { id: 'youtube', label: 'YouTube', icon: Youtube, count: flatYoutube.length },
+              { id: 'news', label: '뉴스', icon: Newspaper, count: flatNews.length },
+              { id: 'blog', label: '블로그', icon: BookOpen, count: flatBlog.length },
+              { id: 'cafe', label: '카페', icon: MessageSquare, count: flatCafe.length },
+            ].map((f) => {
+              const Icon = f.icon;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setActiveFilter(f.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    activeFilter === f.id
+                      ? 'bg-brand-500/15 text-brand-400 border border-brand-500/30'
+                      : 'bg-surface-800 text-gray-400 border border-surface-700 hover:bg-white/5'
+                  }`}
+                >
+                  {Icon && <Icon size={12} />}
+                  {f.label}
+                  <span className="text-[10px] opacity-70">({f.count})</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* 정렬 버튼 */}
+          <div className="flex items-center gap-1 bg-surface-800 border border-surface-700 rounded-lg p-0.5">
+            <button
+              onClick={() => handleSortChange('date')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                sortMode === 'date'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <Clock size={11} />
+              최신순
+            </button>
+            <button
+              onClick={() => handleSortChange('relevance')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                sortMode === 'relevance'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              <ArrowUpDown size={11} />
+              정확도순
+            </button>
+          </div>
         </div>
       )}
 
@@ -249,25 +310,24 @@ export default function SuperraceMonitor() {
       {loading && (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-400">
           <Loader className="w-5 h-5 animate-spin" />
-          키워드별 YouTube · 뉴스 검색 중...
+          키워드별 YouTube · 뉴스 · 블로그 · 카페 검색 중...
         </div>
       )}
 
       {/* 결과 그리드 */}
-      {!loading && filteredItems.length > 0 && (
+      {!loading && sortedItems.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredItems.map((item, idx) =>
-            item._type === 'youtube' ? (
-              <YoutubeCard key={item.videoId || idx} item={item} />
-            ) : (
-              <NewsCard key={item.url || idx} item={item} />
-            ),
-          )}
+          {sortedItems.map((item, idx) => {
+            if (item._type === 'youtube') return <YoutubeCard key={item.videoId || idx} item={item} />;
+            if (item._type === 'blog') return <BlogCard key={item.url || `blog-${idx}`} item={item} />;
+            if (item._type === 'cafe') return <CafeCard key={item.url || `cafe-${idx}`} item={item} />;
+            return <NewsCard key={item.url || idx} item={item} />;
+          })}
         </div>
       )}
 
       {/* 빈 상태 */}
-      {!loading && filteredItems.length === 0 && keywords.length > 0 && (
+      {!loading && sortedItems.length === 0 && keywords.length > 0 && (
         <div className="text-center py-12">
           <Search size={36} className="text-gray-600 mx-auto mb-3" />
           <p className="text-sm text-gray-400">검색 결과가 없습니다</p>
@@ -336,6 +396,78 @@ function NewsCard({ item }) {
           <span className="text-[10px] text-blue-400 font-medium">
             {item.source === 'naver' ? '네이버' : '구글'}
           </span>
+          {item.publisher && (
+            <span className="text-[10px] text-gray-600 truncate">{item.publisher}</span>
+          )}
+        </div>
+        <h4 className="text-xs font-medium text-white line-clamp-2 mb-1">
+          {stripHtml(item.title)}
+        </h4>
+        {item.summary && (
+          <p className="text-[11px] text-gray-400 line-clamp-1">{stripHtml(item.summary)}</p>
+        )}
+        <p className="text-[11px] text-gray-500">{formatDate(item.date)}</p>
+      </div>
+      <ExternalLink
+        size={12}
+        className="text-gray-600 group-hover:text-gray-300 flex-shrink-0 mt-1 transition-colors"
+      />
+    </a>
+  );
+}
+
+// ---- 블로그 카드 ----
+function BlogCard({ item }) {
+  return (
+    <a
+      href={item.url || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex gap-3 p-3 rounded-lg border border-surface-700 bg-surface-800 hover:bg-white/5 transition-colors group"
+    >
+      <div className="w-28 h-[72px] rounded bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+        <BookOpen size={20} className="text-emerald-500/60" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 mb-1">
+          <BookOpen size={11} className="text-emerald-500 flex-shrink-0" />
+          <span className="text-[10px] text-emerald-400 font-medium">블로그</span>
+          {item.publisher && (
+            <span className="text-[10px] text-gray-600 truncate">{item.publisher}</span>
+          )}
+        </div>
+        <h4 className="text-xs font-medium text-white line-clamp-2 mb-1">
+          {stripHtml(item.title)}
+        </h4>
+        {item.summary && (
+          <p className="text-[11px] text-gray-400 line-clamp-1">{stripHtml(item.summary)}</p>
+        )}
+        <p className="text-[11px] text-gray-500">{formatDate(item.date)}</p>
+      </div>
+      <ExternalLink
+        size={12}
+        className="text-gray-600 group-hover:text-gray-300 flex-shrink-0 mt-1 transition-colors"
+      />
+    </a>
+  );
+}
+
+// ---- 카페 카드 ----
+function CafeCard({ item }) {
+  return (
+    <a
+      href={item.url || '#'}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex gap-3 p-3 rounded-lg border border-surface-700 bg-surface-800 hover:bg-white/5 transition-colors group"
+    >
+      <div className="w-28 h-[72px] rounded bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+        <MessageSquare size={20} className="text-purple-500/60" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 mb-1">
+          <MessageSquare size={11} className="text-purple-500 flex-shrink-0" />
+          <span className="text-[10px] text-purple-400 font-medium">카페</span>
           {item.publisher && (
             <span className="text-[10px] text-gray-600 truncate">{item.publisher}</span>
           )}

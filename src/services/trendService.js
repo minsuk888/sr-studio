@@ -81,12 +81,12 @@ export const trendService = {
     };
   },
 
-  // ---- 전체 키워드 검색 (YouTube + 뉴스) ----
-  async searchAllKeywords(keywords) {
+  // ---- 전체 키워드 검색 (YouTube + 뉴스 + 블로그 + 카페) ----
+  async searchAllKeywords(keywords, sort = 'date') {
     const kwStrings = keywords.map((k) =>
       typeof k === 'string' ? k : k.keyword,
     );
-    if (kwStrings.length === 0) return { youtube: [], news: [] };
+    if (kwStrings.length === 0) return { youtube: [], news: [], blog: [], cafe: [] };
 
     const youtubePromises = kwStrings.map((kw) =>
       this.searchKeyword(kw).catch(() => ({
@@ -97,25 +97,30 @@ export const trendService = {
       })),
     );
 
+    const naverSort = sort === 'relevance' ? 'sim' : 'date';
     const primaryKw = kwStrings[0] || '슈퍼레이스';
-    const [youtubeResults, naverNews, googleNews] = await Promise.all([
+    const [youtubeResults, naverNews, googleNews, blogResults, cafeResults] = await Promise.all([
       Promise.all(youtubePromises),
       newsService.fetchNaverNews(primaryKw, 10).catch(() => []),
       newsService.fetchGoogleNews(primaryKw).catch(() => []),
+      newsService.fetchNaverBlog(primaryKw, 10, naverSort).catch(() => []),
+      newsService.fetchNaverCafe(primaryKw, 10, naverSort).catch(() => []),
     ]);
 
     return {
       youtube: youtubeResults,
       news: dedupeNews([...naverNews, ...googleNews]),
+      blog: blogResults,
+      cafe: cafeResults,
     };
   },
 
   // ---- 강제 새로고침 (캐시 무시) ----
-  async forceRefreshAll(keywords) {
+  async forceRefreshAll(keywords, sort = 'date') {
     const kwStrings = keywords.map((k) =>
       typeof k === 'string' ? k : k.keyword,
     );
-    if (kwStrings.length === 0) return { youtube: [], news: [] };
+    if (kwStrings.length === 0) return { youtube: [], news: [], blog: [], cafe: [] };
 
     const youtubePromises = kwStrings.map(async (kw) => {
       try {
@@ -128,16 +133,21 @@ export const trendService = {
       }
     });
 
+    const naverSort = sort === 'relevance' ? 'sim' : 'date';
     const primaryKw = kwStrings[0] || '슈퍼레이스';
-    const [youtubeResults, naverNews, googleNews] = await Promise.all([
+    const [youtubeResults, naverNews, googleNews, blogResults, cafeResults] = await Promise.all([
       Promise.all(youtubePromises),
       newsService.fetchNaverNews(primaryKw, 10).catch(() => []),
       newsService.fetchGoogleNews(primaryKw).catch(() => []),
+      newsService.fetchNaverBlog(primaryKw, 10, naverSort).catch(() => []),
+      newsService.fetchNaverCafe(primaryKw, 10, naverSort).catch(() => []),
     ]);
 
     return {
       youtube: youtubeResults,
       news: dedupeNews([...naverNews, ...googleNews]),
+      blog: blogResults,
+      cafe: cafeResults,
     };
   },
 

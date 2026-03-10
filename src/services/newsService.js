@@ -114,6 +114,46 @@ export const newsService = {
     return this.getAll();
   },
 
+  // ---- 네이버 블로그 검색 ----
+  async fetchNaverBlog(query = '슈퍼레이스', display = 10, sort = 'date') {
+    try {
+      const res = await fetch(`${API_BASE}/api/sns/naver-blog`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, display, sort }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Naver Blog API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.articles || [];
+    } catch (err) {
+      console.error('네이버 블로그 조회 실패:', err);
+      return [];
+    }
+  },
+
+  // ---- 네이버 카페 검색 ----
+  async fetchNaverCafe(query = '슈퍼레이스', display = 10, sort = 'date') {
+    try {
+      const res = await fetch(`${API_BASE}/api/sns/naver-cafe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, display, sort }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Naver Cafe API error: ${res.status}`);
+      }
+      const data = await res.json();
+      return data.articles || [];
+    } catch (err) {
+      console.error('네이버 카페 조회 실패:', err);
+      return [];
+    }
+  },
+
   // ---- 전체 기사 삭제 ----
   async deleteAll() {
     const { error } = await supabase
