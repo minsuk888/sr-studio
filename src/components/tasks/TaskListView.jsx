@@ -4,6 +4,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   CircleCheckBig,
   Settings,
   ListTodo,
@@ -43,6 +44,7 @@ export default function TaskListView({
   filterMember,
 }) {
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [expandedDoneGroups, setExpandedDoneGroups] = useState({});
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddAssignee, setQuickAddAssignee] = useState('');
   const [quickAddDeadline, setQuickAddDeadline] = useState('');
@@ -73,6 +75,13 @@ export default function TaskListView({
       else next.add(groupId);
       return next;
     });
+  };
+
+  const toggleDoneGroup = (groupId) => {
+    setExpandedDoneGroups((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
   };
 
   // ---- Phase 4a: status cycling ----
@@ -365,14 +374,14 @@ export default function TaskListView({
             {/* expanded: status sub-groups */}
             {isOpen && (
               <div className="border-t border-surface-700">
-                {statusOrder.map((status) => {
+                {/* Active tasks: in-progress, todo */}
+                {['in-progress', 'todo'].map((status) => {
                   const items = byStatus[status];
                   if (!items) return null;
                   const cfg = statusLabels[status];
                   const Icon = cfg.icon;
                   return (
                     <div key={status}>
-                      {/* sub-group header */}
                       <div className={`flex items-center gap-2 px-5 py-2 border-b ${cfg.borderColor} ${cfg.bgColor}`}>
                         <Icon className={`w-3.5 h-3.5 ${cfg.textColor} ${cfg.iconAnimate}`} />
                         <span className={`text-xs font-semibold ${cfg.textColor}`}>{cfg.label}</span>
@@ -384,6 +393,30 @@ export default function TaskListView({
                     </div>
                   );
                 })}
+
+                {/* Completed tasks: collapsible done group */}
+                {byStatus.done && byStatus.done.length > 0 && (() => {
+                  const isDoneOpen = expandedDoneGroups[group.id] || false;
+                  return (
+                    <div>
+                      <div
+                        onClick={() => toggleDoneGroup(group.id)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer hover:bg-surface-700/50 transition-all duration-200 mx-2 my-1"
+                      >
+                        <ChevronRight
+                          className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isDoneOpen ? 'rotate-90' : ''}`}
+                        />
+                        <span className="text-xs text-gray-400">완료됨</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                          {byStatus.done.length}건
+                        </span>
+                      </div>
+                      {isDoneOpen && byStatus.done.map((task) => (
+                        <TaskRow key={task.id} task={task} memberColor={memberColor} />
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { aiService } from '../services/aiService';
 import AiInsightCard from '../components/AiInsightCard';
@@ -14,6 +14,8 @@ import {
   addWeeks,
   isSameMonth,
   isToday,
+  isBefore,
+  startOfDay,
   eachDayOfInterval,
 } from 'date-fns';
 import {
@@ -212,26 +214,29 @@ export default function Calendar() {
     if (raw) openEditModal(raw);
   };
 
-  const renderMonthItem = (item) => {
+  const renderMonthItem = (item, isPast) => {
     if (item.type === 'task') {
       return (
         <div
           key={item.id}
-          className={`text-[10px] leading-tight px-1.5 py-0.5 rounded truncate border-l-2 border-dashed ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'}`}
+          className={`text-[10px] leading-tight px-1.5 py-0.5 rounded truncate border-l-2 border-dashed flex items-center gap-0.5 ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'} ${isPast ? 'opacity-50' : ''}`}
           title={item.title}
         >
+          <CalendarDays className="w-2.5 h-2.5 shrink-0" />
           {item.title}
         </div>
       );
     }
+    const EvIcon = getEventType(item.type).icon;
     return (
       <div
         key={item.id}
         onClick={(e) => handleMonthItemClick(e, item)}
-        className="text-[10px] leading-tight px-1.5 py-0.5 rounded truncate text-white hover:opacity-80 transition-opacity"
+        className={`text-[10px] leading-tight px-1.5 py-0.5 rounded truncate text-white hover:opacity-80 transition-opacity flex items-center gap-0.5 ${isPast ? 'opacity-50' : ''}`}
         style={{ backgroundColor: item.color || '#6366f1' }}
         title={`${item.title} (클릭하여 수정)`}
       >
+        <EvIcon className="w-2.5 h-2.5 shrink-0" />
         {item.title}
       </div>
     );
@@ -280,7 +285,7 @@ export default function Calendar() {
 
       {/* Calendar Grid */}
       {viewMode === 'month' ? (
-        <MonthView monthDays={monthDays} currentDate={currentDate} tasks={tasks} calendarEvents={calendarEvents} openAddModal={openAddModal} renderMonthItem={renderMonthItem} />
+        <MonthView monthDays={monthDays} currentDate={currentDate} tasks={tasks} calendarEvents={calendarEvents} openAddModal={openAddModal} renderMonthItem={renderMonthItem} handleMonthItemClick={handleMonthItemClick} />
       ) : (
         <WeekView weekDays={weekDays} tasks={tasks} calendarEvents={calendarEvents} members={members} getMemberName={getMemberName} openAddModal={openAddModal} openEditModal={openEditModal} requestDelete={requestDelete} />
       )}
@@ -396,9 +401,33 @@ export default function Calendar() {
 }
 
 // ========== MONTH VIEW ==========
-function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal, renderMonthItem }) {
+function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal, renderMonthItem, handleMonthItemClick }) {
+  const [popoverDay, setPopoverDay] = useState(null);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
+  const popoverRef = useRef(null);
+  const todayStart = startOfDay(new Date());
+
+  // Outside click detection for popover
+  useEffect(() => {
+    if (!popoverDay) return;
+    const handleClickOutside = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setPopoverDay(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [popoverDay]);
+
+  const openPopover = (e, day) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPopoverPosition({ x: rect.left, y: rect.bottom + 4 });
+    setPopoverDay(day);
+  };
+
   return (
-    <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden relative">
       <div className="grid grid-cols-7 border-b border-surface-700">
         {DAY_NAMES.map((name, i) => (
           <div key={name} className={`py-3 text-center text-xs font-semibold ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-gray-400'}`}>{name}</div>
@@ -408,6 +437,7 @@ function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal
         {monthDays.map((day, idx) => {
           const inMonth = isSameMonth(day, currentDate);
           const today = isToday(day);
+          const isPast = isBefore(day, todayStart) && !today;
           const items = getItemsForDay(day, tasks, calendarEvents);
           const visibleItems = items.slice(0, 3);
           const moreCount = items.length - 3;
@@ -416,33 +446,90 @@ function MonthView({ monthDays, currentDate, tasks, calendarEvents, openAddModal
           return (
             <div
               key={idx}
-              onClick={() => openAddModal(day)}
-              className={`min-h-[100px] border border-surface-700 p-1.5 cursor-pointer transition-colors hover:bg-white/5 ${!inMonth ? 'bg-surface-700/50' : ''}`}
+              className={`group relative min-h-[100px] border border-surface-700 p-1.5 cursor-pointer transition-colors hover:bg-white/5 ${!inMonth ? 'bg-surface-700/50' : ''} ${today ? 'bg-brand-500/[0.05]' : ''}`}
             >
+              {/* Hover "+" button */}
+              <button
+                onClick={(e) => { e.stopPropagation(); openAddModal(day); }}
+                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface-600 hover:bg-brand-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+              >
+                <Plus className="w-3 h-3 text-white" />
+              </button>
+
               <div className="flex justify-center mb-1">
                 <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-medium rounded-full ${
                   today ? 'bg-brand-500 text-white font-bold' : !inMonth ? 'text-gray-400' : dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-300'
                 }`}>{format(day, 'd')}</span>
               </div>
               <div className="space-y-0.5">
-                {visibleItems.map((item) => renderMonthItem(item))}
-                {moreCount > 0 && <div className="text-[10px] text-gray-500 px-1.5">+{moreCount} more</div>}
+                {visibleItems.map((item) => renderMonthItem(item, isPast))}
+                {moreCount > 0 && (
+                  <button
+                    onClick={(e) => openPopover(e, day)}
+                    className="text-[10px] text-gray-500 px-1.5 hover:text-brand-400 transition-colors cursor-pointer"
+                  >
+                    +{moreCount} more
+                  </button>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* "+N more" Popover */}
+      {popoverDay && (
+        <div
+          ref={popoverRef}
+          className="fixed z-50 bg-surface-800 border border-surface-600 rounded-xl shadow-2xl p-3 min-w-[200px] max-w-[280px]"
+          style={{ left: popoverPosition.x, top: popoverPosition.y }}
+        >
+          <div className="text-xs font-semibold text-white mb-2">
+            {format(popoverDay, 'M월 d일')} ({DAY_NAMES[popoverDay.getDay()]})
+          </div>
+          <div className="space-y-1 max-h-[240px] overflow-y-auto">
+            {getItemsForDay(popoverDay, tasks, calendarEvents).map((item) => {
+              const evType = getEventType(item.type);
+              const EvIcon = item.type === 'task' ? CalendarDays : evType.icon;
+              return (
+                <div
+                  key={item.id}
+                  onClick={(e) => { handleMonthItemClick(e, item); setPopoverDay(null); }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-xs"
+                >
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color || evType.color || '#64748b' }} />
+                  <EvIcon className="w-3 h-3 shrink-0 text-gray-400" />
+                  <span className="text-gray-200 truncate">{item.title}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ========== WEEK VIEW ==========
 function WeekView({ weekDays, tasks, calendarEvents, members, getMemberName, openAddModal, openEditModal, requestDelete }) {
+  const [currentMinute, setCurrentMinute] = useState(() => new Date());
+  const todayStart = startOfDay(new Date());
+  const COLUMN_HEIGHT = 420;
+
+  // Update current time every minute
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentMinute(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const timeLineTop = ((currentMinute.getHours() * 60 + currentMinute.getMinutes()) / (24 * 60)) * COLUMN_HEIGHT;
+
   return (
     <div className="bg-surface-800 rounded-xl shadow-sm overflow-hidden">
       <div className="grid grid-cols-7 divide-x divide-surface-700">
         {weekDays.map((day, idx) => {
           const today = isToday(day);
+          const isPast = isBefore(day, todayStart) && !today;
           const items = getItemsForDay(day, tasks, calendarEvents);
           const dayOfWeek = day.getDay();
 
@@ -452,14 +539,22 @@ function WeekView({ weekDays, tasks, calendarEvents, members, getMemberName, ope
                 <div className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-500'}`}>{DAY_NAMES[dayOfWeek]}</div>
                 <div className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-full ${today ? 'bg-brand-500 text-white' : 'text-gray-300'}`}>{format(day, 'd')}</div>
               </div>
-              <div className="flex-1 p-2 space-y-2">
+              <div className="flex-1 p-2 space-y-2 relative">
+                {/* Current time line - only on today */}
+                {today && (
+                  <div className="absolute left-0 right-0 z-10 flex items-center pointer-events-none" style={{ top: `${timeLineTop}px` }}>
+                    <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 -ml-1" />
+                    <div className="flex-1 border-t-2 border-red-500" />
+                  </div>
+                )}
+
                 {items.length === 0 && (
                   <div onClick={() => openAddModal(day)} className="h-full flex items-center justify-center cursor-pointer group">
                     <Plus className="w-5 h-5 text-gray-400 group-hover:text-gray-500 transition-colors" />
                   </div>
                 )}
                 {items.map((item) => (
-                  <WeekViewItem key={item.id} item={item} tasks={tasks} calendarEvents={calendarEvents} getMemberName={getMemberName} openEditModal={openEditModal} requestDelete={requestDelete} />
+                  <WeekViewItem key={item.id} item={item} isPast={isPast} tasks={tasks} calendarEvents={calendarEvents} getMemberName={getMemberName} openEditModal={openEditModal} requestDelete={requestDelete} />
                 ))}
               </div>
             </div>
@@ -471,12 +566,12 @@ function WeekView({ weekDays, tasks, calendarEvents, members, getMemberName, ope
 }
 
 // ========== WEEK VIEW ITEM ==========
-function WeekViewItem({ item, tasks, calendarEvents, getMemberName, openEditModal, requestDelete }) {
+function WeekViewItem({ item, isPast, tasks, calendarEvents, getMemberName, openEditModal, requestDelete }) {
   if (item.type === 'task') {
     const taskData = tasks.find((t) => `task-${t.id}` === item.id);
     return (
       <div
-        className={`p-2 rounded-lg border-l-[3px] border-dashed text-xs ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'}`}
+        className={`p-2 rounded-lg border-l-[3px] border-dashed text-xs ${isPast ? 'opacity-50' : ''} ${PRIORITY_TEXT_COLORS[item.priority] || 'text-gray-400 bg-surface-700'}`}
         style={{ borderLeftColor: item.priority === 'high' ? '#ef4444' : item.priority === 'medium' ? '#f59e0b' : '#3b82f6' }}
       >
         <div className="flex items-start gap-1 mb-1">
@@ -493,14 +588,18 @@ function WeekViewItem({ item, tasks, calendarEvents, getMemberName, openEditModa
   }
 
   const raw = calendarEvents.find((ev) => ev.id === item.id);
+  const timeStr = null; // calendar events store date only, no time data
 
   return (
-    <div className="p-2 rounded-lg text-xs text-white relative group" style={{ backgroundColor: item.color || '#6366f1' }}>
+    <div className={`p-2 rounded-lg text-xs text-white relative group ${isPast ? 'opacity-50' : ''}`} style={{ backgroundColor: item.color || '#6366f1' }}>
       <div className="flex items-start gap-1">
         <Clock className="w-3 h-3 mt-0.5 shrink-0 opacity-80" />
         <span className="font-medium leading-tight">{item.title}</span>
       </div>
-      <div className="text-[10px] opacity-80 mt-1">{getEventType(item.type).label}</div>
+      <div className="text-[10px] opacity-80 mt-1 flex items-center gap-1">
+        {timeStr && <span>{timeStr}</span>}
+        <span>{getEventType(item.type).label}</span>
+      </div>
       {item.rawDescription && (
         <div className="text-[9px] opacity-70 mt-0.5 line-clamp-2">{item.rawDescription}</div>
       )}

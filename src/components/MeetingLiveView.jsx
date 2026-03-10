@@ -31,6 +31,7 @@ export default function MeetingLiveView({
   const [liveMinutes, setLiveMinutes] = useState(initialMinutes);
   const [minutesSaveStatus, setMinutesSaveStatus] = useState(null);
   const [rightTab, setRightTab] = useState('minutes');
+  const [focusedAgendaIndex, setFocusedAgendaIndex] = useState(0);
 
   // ---- Refs ----
   const timerRef = useRef(null);
@@ -125,11 +126,23 @@ export default function MeetingLiveView({
       } else if (e.key === 'p' || e.key === 'P') {
         e.preventDefault();
         setIsPaused((prev) => !prev);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedAgendaIndex((prev) => Math.max(0, prev - 1));
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setFocusedAgendaIndex((prev) => Math.min(allItems.length - 1, prev + 1));
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const focused = allItems[focusedAgendaIndex];
+        if (focused) {
+          cycleAgendaStatus(focused.id, focused.status);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleExit]);
+  }, [handleExit, allItems, focusedAgendaIndex, cycleAgendaStatus]);
 
   // ---- Progress ----
   const doneCount = allItems.filter((a) => a.status === 'done').length;
@@ -144,7 +157,7 @@ export default function MeetingLiveView({
       </span>
     );
     if (status === 'discussing') return (
-      <span className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-brand-500/20 text-brand-400 tracking-wide animate-pulse">
+      <span className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-brand-500/20 text-brand-400 tracking-wide">
         <AlertCircle size={13} /> 논의 중
       </span>
     );
@@ -232,66 +245,117 @@ export default function MeetingLiveView({
 
       {/* ===== Body: 2-Panel ===== */}
       <div className="flex flex-col lg:flex-row flex-1 min-h-0">
-        {/* --- Left: Agendas (clean, no textareas) --- */}
-        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 lg:py-5 space-y-2">
+        {/* --- Left: Agendas with Vertical Stepper --- */}
+        <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-4 lg:py-5">
           {agendaTree.map((agenda, idx) => {
             const isDiscussing = agenda.status === 'discussing';
             const isDone = agenda.status === 'done';
+            const flatIndex = allItems.indexOf(agenda);
+            const isFocused = focusedAgendaIndex === flatIndex;
+            const isLastParent = idx === agendaTree.length - 1 && agenda.children.length === 0;
 
             return (
-              <div key={agenda.id} className="space-y-1">
-                {/* Parent agenda */}
-                <button
-                  onClick={() => cycleAgendaStatus(agenda.id, agenda.status)}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border transition-all duration-300 text-left cursor-pointer ${
-                    isDiscussing
-                      ? 'border-brand-500/50 bg-brand-500/10 shadow-lg shadow-brand-500/10'
-                      : isDone
-                        ? 'border-emerald-500/30 bg-emerald-500/5 opacity-70'
-                        : 'border-surface-700 bg-surface-800 hover:bg-surface-750 hover:border-surface-700'
-                  }`}
-                >
-                  <span className={`text-lg font-black tabular-nums shrink-0 w-8 ${
-                    isDone ? 'text-emerald-500' : isDiscussing ? 'text-brand-400' : 'text-gray-600'
-                  }`}>
-                    {idx + 1}
-                  </span>
-                  <h3 className={`flex-1 text-sm font-semibold tracking-tight ${
-                    isDone ? 'text-gray-500 line-through' : 'text-white'
-                  }`}>
-                    {agenda.title}
-                  </h3>
-                  <StatusBadge status={agenda.status} />
-                </button>
+              <div key={agenda.id}>
+                {/* Parent agenda with stepper */}
+                <div className="flex gap-3">
+                  {/* Stepper node + connector */}
+                  <div className="flex flex-col items-center shrink-0 w-4">
+                    {/* Node */}
+                    {isDone ? (
+                      <div className="w-3 h-3 rounded-full bg-emerald-500 shrink-0 mt-5" />
+                    ) : isDiscussing ? (
+                      <div className="w-3.5 h-3.5 rounded-full bg-brand-500 ring-4 ring-brand-500/20 animate-pulse shrink-0 mt-5" />
+                    ) : (
+                      <div className="w-3 h-3 rounded-full border-2 border-surface-600 bg-transparent shrink-0 mt-5" />
+                    )}
+                    {/* Connector line (hide on last item with no children) */}
+                    {!isLastParent && (
+                      <div className={`w-0.5 flex-1 min-h-[8px] ${isDone ? 'bg-emerald-500' : 'bg-surface-700'}`} />
+                    )}
+                  </div>
 
-                {/* Children */}
+                  {/* Card */}
+                  <button
+                    onClick={() => cycleAgendaStatus(agenda.id, agenda.status)}
+                    className={`flex-1 flex items-center gap-3 rounded-xl text-left cursor-pointer mb-1 ${
+                      isDiscussing
+                        ? 'border-l-4 border-brand-500 bg-brand-500/15 shadow-lg shadow-brand-500/10 ring-1 ring-brand-500/20 transform translate-x-1 px-5 py-4 transition-all duration-300 ease-out'
+                        : isDone
+                          ? 'border border-emerald-500/30 bg-emerald-500/5 opacity-40 scale-[0.98] px-5 py-4 transition-all duration-300'
+                          : 'border border-surface-700 bg-surface-800 hover:bg-white/5 hover:border-surface-600 opacity-35 saturate-50 px-5 py-4 transition-all duration-300'
+                    } ${isFocused ? 'ring-2 ring-white/20' : ''}`}
+                  >
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold tabular-nums shrink-0 ${
+                      isDone ? 'bg-emerald-500/20 text-emerald-500' : isDiscussing ? 'bg-brand-500/20 text-brand-400' : 'bg-surface-700 text-gray-600'
+                    }`}>
+                      {idx + 1}
+                    </span>
+                    <h3 className={`flex-1 tracking-tight ${
+                      isDiscussing
+                        ? 'text-lg font-bold text-white'
+                        : isDone
+                          ? 'text-sm font-semibold line-through text-gray-500'
+                          : 'text-sm font-semibold text-gray-500'
+                    }`}>
+                      {agenda.title}
+                    </h3>
+                    <StatusBadge status={agenda.status} />
+                  </button>
+                </div>
+
+                {/* Children with stepper */}
                 {agenda.children.map((child, childIdx) => {
                   const cDiscussing = child.status === 'discussing';
                   const cDone = child.status === 'done';
+                  const childFlatIndex = allItems.indexOf(child);
+                  const childIsFocused = focusedAgendaIndex === childFlatIndex;
+                  const isLastChild = childIdx === agenda.children.length - 1;
+                  const isLastItem = isLastChild && idx === agendaTree.length - 1;
+
                   return (
-                    <button
-                      key={child.id}
-                      onClick={() => cycleAgendaStatus(child.id, child.status)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 ml-6 lg:ml-8 rounded-lg border transition-all duration-300 text-left cursor-pointer ${
-                        cDiscussing
-                          ? 'border-brand-500/40 bg-brand-500/5'
-                          : cDone
-                            ? 'border-emerald-500/20 bg-emerald-500/5 opacity-60'
-                            : 'border-surface-700/50 bg-surface-850 hover:bg-surface-800'
-                      }`}
-                    >
-                      <span className={`text-xs font-bold tabular-nums shrink-0 w-8 ${
-                        cDone ? 'text-emerald-500/60' : cDiscussing ? 'text-brand-400/80' : 'text-gray-600'
-                      }`}>
-                        {idx + 1}.{childIdx + 1}
-                      </span>
-                      <span className={`flex-1 text-xs font-medium ${
-                        cDone ? 'text-gray-500 line-through' : 'text-gray-300'
-                      }`}>
-                        {child.title}
-                      </span>
-                      <StatusBadge status={child.status} />
-                    </button>
+                    <div key={child.id} className="flex gap-3">
+                      {/* Stepper node + connector */}
+                      <div className="flex flex-col items-center shrink-0 w-4">
+                        {cDone ? (
+                          <div className="w-3 h-3 rounded-full bg-emerald-500 shrink-0 mt-3" />
+                        ) : cDiscussing ? (
+                          <div className="w-3.5 h-3.5 rounded-full bg-brand-500 ring-4 ring-brand-500/20 animate-pulse shrink-0 mt-3" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full border-2 border-surface-600 bg-transparent shrink-0 mt-3" />
+                        )}
+                        {!isLastItem && (
+                          <div className={`w-0.5 flex-1 min-h-[8px] ${cDone ? 'bg-emerald-500' : 'bg-surface-700'}`} />
+                        )}
+                      </div>
+
+                      {/* Child card */}
+                      <button
+                        onClick={() => cycleAgendaStatus(child.id, child.status)}
+                        className={`flex-1 flex items-center gap-3 ml-10 rounded-lg text-left cursor-pointer mb-1 ${
+                          cDiscussing
+                            ? 'border-l-4 border-brand-500 bg-brand-500/15 shadow-lg shadow-brand-500/10 ring-1 ring-brand-500/20 transform translate-x-1 px-4 py-3 transition-all duration-300 ease-out'
+                            : cDone
+                              ? 'border border-emerald-500/20 bg-emerald-500/5 opacity-40 scale-[0.98] px-4 py-3 transition-all duration-300'
+                              : 'border border-surface-700/50 bg-surface-850 hover:bg-surface-800 opacity-35 saturate-50 px-4 py-3 transition-all duration-300'
+                        } ${childIsFocused ? 'ring-2 ring-white/20' : ''}`}
+                      >
+                        <span className={`text-xs font-bold tabular-nums shrink-0 w-8 ${
+                          cDone ? 'text-emerald-500/60' : cDiscussing ? 'text-brand-400/80' : 'text-gray-600'
+                        }`}>
+                          {idx + 1}.{childIdx + 1}
+                        </span>
+                        <span className={`flex-1 text-xs font-medium ${
+                          cDiscussing
+                            ? 'text-white font-semibold'
+                            : cDone
+                              ? 'line-through text-gray-500'
+                              : 'text-gray-500'
+                        }`}>
+                          {child.title}
+                        </span>
+                        <StatusBadge status={child.status} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
