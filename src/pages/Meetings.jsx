@@ -22,6 +22,8 @@ import {
 import { meetingsService } from '../services/meetingsService';
 import { useApp } from '../context/AppContext';
 import MeetingLiveView from '../components/MeetingLiveView';
+import AgendaEditor from '../components/meetings/AgendaEditor';
+import RichContent from '../components/meetings/RichContent';
 
 const STATUS_CONFIG = {
   scheduled: { label: '예정', color: 'text-blue-400', bg: 'bg-blue-500/20', dot: 'bg-blue-400' },
@@ -77,6 +79,12 @@ export default function Meetings() {
   // 세부 안건
   const [subAgendaParent, setSubAgendaParent] = useState(null);
   const [newSubAgendaTitle, setNewSubAgendaTitle] = useState('');
+
+  // 리치에디터 모드
+  const [showAgendaEditor, setShowAgendaEditor] = useState(false);
+  const [agendaEditorContent, setAgendaEditorContent] = useState('');
+  const [showSubAgendaEditor, setShowSubAgendaEditor] = useState(false);
+  const [subAgendaEditorContent, setSubAgendaEditorContent] = useState('');
 
   // 참석자 선택
   const [selectedAttendees, setSelectedAttendees] = useState([]);
@@ -252,14 +260,19 @@ export default function Meetings() {
   };
 
   // 안건 추가 (중복 방지 lock)
-  const handleAddAgenda = async () => {
-    if (!selected || !newAgendaTitle.trim() || addingAgendaRef.current) return;
+  const handleAddAgenda = async (htmlContent) => {
+    const content = htmlContent || newAgendaTitle.trim();
+    if (!selected || !content || addingAgendaRef.current) return;
+    // Strip HTML tags for empty check
+    const textOnly = content.replace(/<[^>]*>/g, '').trim();
+    if (!textOnly) return;
     addingAgendaRef.current = true;
-    const title = newAgendaTitle.trim();
     setNewAgendaTitle('');
+    setAgendaEditorContent('');
+    setShowAgendaEditor(false);
     try {
       const agenda = await meetingsService.addAgenda(selected.id, {
-        title,
+        title: content,
         sort_order: (selected.meeting_agendas || []).length,
       });
       setMeetings((prev) =>
@@ -293,13 +306,17 @@ export default function Meetings() {
   };
 
   // 세부 안건 추가 (중복 방지 lock)
-  const handleAddSubAgenda = async () => {
-    if (!newSubAgendaTitle.trim() || !subAgendaParent || !selected || addingSubAgendaRef.current) return;
+  const handleAddSubAgenda = async (htmlContent) => {
+    const content = htmlContent || newSubAgendaTitle.trim();
+    if (!content || !subAgendaParent || !selected || addingSubAgendaRef.current) return;
+    const textOnly = content.replace(/<[^>]*>/g, '').trim();
+    if (!textOnly) return;
     addingSubAgendaRef.current = true;
-    const title = newSubAgendaTitle.trim();
     setNewSubAgendaTitle('');
+    setSubAgendaEditorContent('');
+    setShowSubAgendaEditor(false);
     try {
-      const newSub = await meetingsService.addSubAgenda(selected.id, subAgendaParent, { title });
+      const newSub = await meetingsService.addSubAgenda(selected.id, subAgendaParent, { title: content });
       setMeetings(prev =>
         prev.map(m =>
           m.id === selected.id
@@ -309,7 +326,7 @@ export default function Meetings() {
       );
       setSubAgendaParent(null);
     } catch (err) {
-      console.error('세부 안건 추가 실패:', err);
+      alert('세부 안건 추가 실패: ' + err.message);
     } finally {
       addingSubAgendaRef.current = false;
     }
@@ -723,89 +740,133 @@ export default function Meetings() {
                   <ListOrdered size={15} className="text-brand-500" />
                   안건
                 </h3>
-                <div className="space-y-1 mb-3">
-                  {agendaTree.map((agenda, idx) => (
-                    <div key={agenda.id}>
-                      {/* Parent agenda */}
-                      <div className="flex items-center gap-2 group">
-                        <span className="text-xs font-bold text-gray-500 w-5">{idx + 1}.</span>
-                        <span className="text-sm text-gray-300 flex-1 font-medium">{agenda.title}</span>
-                        <button
-                          onClick={() => setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id)}
-                          className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-500/10 transition-all cursor-pointer"
-                          title="세부 업무 추가"
-                        >
-                          <Plus size={11} />
-                          <span>세부항목</span>
-                        </button>
-                        <button
-                          onClick={() => handleRemoveAgenda(agenda.id)}
-                          className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
-                        >
-                          <X size={12} />
-                        </button>
+                <div className="space-y-1.5 mb-3">
+                  {agendaTree.map((agenda, idx) => {
+                    const isHtml = agenda.title?.startsWith('<');
+                    return (
+                      <div key={agenda.id}>
+                        {/* Parent agenda */}
+                        <div className="flex items-start gap-2 group">
+                          <span className="text-xs font-bold text-gray-500 w-5 mt-1">{idx + 1}.</span>
+                          <div className="flex-1 min-w-0">
+                            {isHtml ? (
+                              <RichContent html={agenda.title} className="text-sm" />
+                            ) : (
+                              <span className="text-sm text-gray-300 font-medium">{agenda.title}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                            <button
+                              onClick={() => {
+                                setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id);
+                                setShowSubAgendaEditor(false);
+                                setSubAgendaEditorContent('');
+                              }}
+                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-500/10 transition-all cursor-pointer"
+                              title="세부 업무 추가"
+                            >
+                              <Plus size={11} />
+                              <span>세부항목</span>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveAgenda(agenda.id)}
+                              className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        {/* Sub-items */}
+                        {agenda.children.map((sub, subIdx) => {
+                          const subIsHtml = sub.title?.startsWith('<');
+                          return (
+                            <div key={sub.id} className="flex items-start gap-2 group ml-7 mt-0.5">
+                              <span className="text-[11px] text-gray-600 w-8 mt-0.5">{idx + 1}.{subIdx + 1}</span>
+                              <div className="flex-1 min-w-0">
+                                {subIsHtml ? (
+                                  <RichContent html={sub.title} className="text-xs" />
+                                ) : (
+                                  <span className="text-xs text-gray-400">{sub.title}</span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleRemoveAgenda(sub.id)}
+                                className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer shrink-0"
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {/* Sub-agenda rich editor */}
+                        {subAgendaParent === agenda.id && (
+                          <div className="ml-7 mt-1.5">
+                            {showSubAgendaEditor ? (
+                              <AgendaEditor
+                                compact
+                                content={subAgendaEditorContent}
+                                onChange={setSubAgendaEditorContent}
+                                onConfirm={(html) => handleAddSubAgenda(html)}
+                                onCancel={() => { setSubAgendaParent(null); setShowSubAgendaEditor(false); setSubAgendaEditorContent(''); }}
+                              />
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={newSubAgendaTitle}
+                                  onChange={(e) => setNewSubAgendaTitle(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddSubAgenda(); } }}
+                                  placeholder="세부 업무 항목..."
+                                  className="flex-1 px-2.5 py-1.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => setShowSubAgendaEditor(true)}
+                                  className="px-2 py-1.5 text-brand-400 text-[11px] hover:bg-brand-500/10 rounded transition-colors cursor-pointer"
+                                  title="리치 에디터로 전환"
+                                >
+                                  서식
+                                </button>
+                                <button
+                                  onClick={handleAddSubAgenda}
+                                  disabled={!newSubAgendaTitle.trim()}
+                                  className="px-2 py-1.5 bg-brand-500 text-white text-xs rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 cursor-pointer"
+                                >
+                                  추가
+                                </button>
+                                <button
+                                  onClick={() => { setSubAgendaParent(null); setNewSubAgendaTitle(''); }}
+                                  className="p-1 text-gray-600 hover:text-gray-400 cursor-pointer"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {/* Sub-items */}
-                      {agenda.children.map((sub, subIdx) => (
-                        <div key={sub.id} className="flex items-center gap-2 group ml-7 mt-0.5">
-                          <span className="text-[11px] text-gray-600 w-8">{idx + 1}.{subIdx + 1}</span>
-                          <span className="text-xs text-gray-400 flex-1">{sub.title}</span>
-                          <button
-                            onClick={() => handleRemoveAgenda(sub.id)}
-                            className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
-                          >
-                            <X size={10} />
-                          </button>
-                        </div>
-                      ))}
-                      {/* Sub-agenda input */}
-                      {subAgendaParent === agenda.id && (
-                        <div className="flex items-center gap-2 ml-7 mt-1.5">
-                          <input
-                            type="text"
-                            value={newSubAgendaTitle}
-                            onChange={(e) => setNewSubAgendaTitle(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddSubAgenda(); } }}
-                            placeholder="세부 업무 항목..."
-                            className="flex-1 px-2.5 py-1.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                            autoFocus
-                          />
-                          <button
-                            onClick={handleAddSubAgenda}
-                            disabled={!newSubAgendaTitle.trim()}
-                            className="px-2 py-1.5 bg-brand-500 text-white text-xs rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 cursor-pointer"
-                          >
-                            추가
-                          </button>
-                          <button
-                            onClick={() => { setSubAgendaParent(null); setNewSubAgendaTitle(''); }}
-                            className="p-1 text-gray-600 hover:text-gray-400 cursor-pointer"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {/* Add top-level agenda */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newAgendaTitle}
-                    onChange={(e) => setNewAgendaTitle(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); handleAddAgenda(); } }}
-                    placeholder="새 안건 제목을 입력하세요..."
-                    className="flex-1 px-3 py-2 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                {showAgendaEditor ? (
+                  <AgendaEditor
+                    content={agendaEditorContent}
+                    onChange={setAgendaEditorContent}
+                    onConfirm={(html) => handleAddAgenda(html)}
+                    onCancel={() => { setShowAgendaEditor(false); setAgendaEditorContent(''); }}
                   />
-                  <button
-                    onClick={handleAddAgenda}
-                    disabled={!newAgendaTitle.trim()}
-                    className="px-3 py-2 bg-brand-500 text-white text-sm rounded-lg hover:bg-brand-600 transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    <Plus size={15} />
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowAgendaEditor(true)}
+                      className="flex-1 flex items-center gap-2 px-3 py-2.5 border border-dashed border-surface-600 bg-surface-900/50 text-gray-500 rounded-lg text-sm hover:border-brand-500/50 hover:text-brand-400 hover:bg-brand-500/5 transition-all cursor-pointer"
+                    >
+                      <Plus size={15} />
+                      새 안건 추가
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 회의록 */}

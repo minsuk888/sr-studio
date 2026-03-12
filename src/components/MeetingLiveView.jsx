@@ -12,6 +12,7 @@ import {
   FileText,
   Save,
 } from 'lucide-react';
+import RichContent from './meetings/RichContent';
 
 export default function MeetingLiveView({
   meeting,
@@ -290,15 +291,19 @@ export default function MeetingLiveView({
                     }`}>
                       {idx + 1}
                     </span>
-                    <h3 className={`flex-1 tracking-tight ${
+                    <div className={`flex-1 tracking-tight min-w-0 ${
                       isDiscussing
                         ? 'text-lg font-bold text-white'
                         : isDone
                           ? 'text-sm font-semibold line-through text-gray-500'
                           : 'text-sm font-semibold text-gray-500'
                     }`}>
-                      {agenda.title}
-                    </h3>
+                      {agenda.title?.startsWith('<') ? (
+                        <RichContent html={agenda.title} />
+                      ) : (
+                        agenda.title
+                      )}
+                    </div>
                     <StatusBadge status={agenda.status} />
                   </button>
                 </div>
@@ -344,15 +349,19 @@ export default function MeetingLiveView({
                         }`}>
                           {idx + 1}.{childIdx + 1}
                         </span>
-                        <span className={`flex-1 text-xs font-medium ${
+                        <div className={`flex-1 text-xs font-medium min-w-0 ${
                           cDiscussing
                             ? 'text-white font-semibold'
                             : cDone
                               ? 'line-through text-gray-500'
                               : 'text-gray-500'
                         }`}>
-                          {child.title}
-                        </span>
+                          {child.title?.startsWith('<') ? (
+                            <RichContent html={child.title} className="text-xs" />
+                          ) : (
+                            child.title
+                          )}
+                        </div>
                         <StatusBadge status={child.status} />
                       </button>
                     </div>

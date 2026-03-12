@@ -41,7 +41,7 @@ const MEMBER_COLORS = [
 export default function Tasks() {
   const { tasks, members, addTask, updateTask, deleteTask, addMember, updateMember, deleteMember } = useApp();
 
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('kanban');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [filterMember, setFilterMember] = useState(null);
