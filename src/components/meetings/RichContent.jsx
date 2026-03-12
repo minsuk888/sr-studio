@@ -14,7 +14,7 @@ export default function RichContent({ html, className = '' }) {
         [&_p]:text-sm [&_p]:text-gray-300 [&_p]:my-0.5 [&_p]:leading-relaxed
         [&_ul]:my-0.5 [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:pl-4
         [&_li]:text-sm [&_li]:text-gray-300
-        [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded [&_img]:my-1 [&_img]:max-h-48
+        [&_img]:max-w-full [&_img]:!h-auto [&_img]:rounded [&_img]:my-1 [&_img]:object-contain
         [&_strong]:text-gray-100
         [&_em]:text-gray-200
         [&_u]:text-gray-200

@@ -94,12 +94,12 @@ function ResizableImageComponent({ node, updateAttributes, selected }) {
   }, [resizing, updateAttributes]);
 
   return (
-    <NodeViewWrapper as="span" className="inline-block relative group">
+    <NodeViewWrapper className="relative group my-1">
       <img
         ref={imgRef}
         src={node.attrs.src}
         alt={node.attrs.alt || ''}
-        style={{ width: node.attrs.width || 'auto', maxWidth: '100%', height: 'auto' }}
+        style={{ width: node.attrs.width || 'auto', maxWidth: '100%', height: 'auto', display: 'block' }}
         className={`rounded ${selected ? 'ring-2 ring-brand-500' : ''}`}
         draggable={false}
       />
@@ -126,7 +126,7 @@ const ResizableImage = Image.extend({
         parseHTML: (el) => el.getAttribute('width') || el.style.width || null,
         renderHTML: (attrs) => {
           if (!attrs.width) return {};
-          return { width: attrs.width, style: `width: ${attrs.width}` };
+          return { width: attrs.width, style: `width: ${attrs.width}; height: auto;` };
         },
       },
     };
@@ -293,7 +293,7 @@ export default function AgendaEditor({ content = '', onChange, onConfirm, onCanc
       Color,
       FontSize,
       ResizableImage.configure({
-        inline: true,
+        inline: false,
         allowBase64: true,
       }),
     ],
