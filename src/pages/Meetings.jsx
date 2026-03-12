@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   Trash2,
+  Pencil,
   ChevronRight,
   Save,
   ArrowRight,
@@ -85,6 +86,10 @@ export default function Meetings() {
   const [agendaEditorContent, setAgendaEditorContent] = useState('');
   const [showSubAgendaEditor, setShowSubAgendaEditor] = useState(false);
   const [subAgendaEditorContent, setSubAgendaEditorContent] = useState('');
+
+  // 안건 수정 모드
+  const [editingAgendaId, setEditingAgendaId] = useState(null);
+  const [editingAgendaContent, setEditingAgendaContent] = useState('');
 
   // 참석자 선택
   const [selectedAttendees, setSelectedAttendees] = useState([]);
@@ -332,7 +337,7 @@ export default function Meetings() {
     }
   };
 
-  // 안건 업데이트 (라이브 모드)
+  // 안건 업데이트
   const handleUpdateAgenda = async (agendaId, updates) => {
     try {
       await meetingsService.updateAgenda(agendaId, updates);
@@ -351,6 +356,28 @@ export default function Meetings() {
     } catch (err) {
       console.error('안건 업데이트 실패:', err);
     }
+  };
+
+  // 안건 수정 시작
+  const startEditAgenda = (agenda) => {
+    setEditingAgendaId(agenda.id);
+    setEditingAgendaContent(agenda.title || '');
+  };
+
+  // 안건 수정 저장
+  const handleSaveEditAgenda = async (html) => {
+    if (!editingAgendaId) return;
+    const stripped = html.replace(/<[^>]*>/g, '').trim();
+    if (!stripped) return;
+    await handleUpdateAgenda(editingAgendaId, { title: html });
+    setEditingAgendaId(null);
+    setEditingAgendaContent('');
+  };
+
+  // 안건 수정 취소
+  const cancelEditAgenda = () => {
+    setEditingAgendaId(null);
+    setEditingAgendaContent('');
   };
 
   // 라이브 모드 진입
@@ -743,58 +770,97 @@ export default function Meetings() {
                 <div className="space-y-1.5 mb-3">
                   {agendaTree.map((agenda, idx) => {
                     const isHtml = agenda.title?.startsWith('<');
+                    const isEditing = editingAgendaId === agenda.id;
                     return (
                       <div key={agenda.id}>
                         {/* Parent agenda */}
-                        <div className="flex items-start gap-2 group">
-                          <span className="text-xs font-bold text-gray-500 w-5 mt-1">{idx + 1}.</span>
-                          <div className="flex-1 min-w-0">
-                            {isHtml ? (
-                              <RichContent html={agenda.title} className="text-sm" />
-                            ) : (
-                              <span className="text-sm text-gray-300 font-medium">{agenda.title}</span>
-                            )}
+                        {isEditing ? (
+                          <div className="mb-1.5">
+                            <AgendaEditor
+                              content={editingAgendaContent}
+                              onChange={setEditingAgendaContent}
+                              onConfirm={handleSaveEditAgenda}
+                              onCancel={cancelEditAgenda}
+                            />
                           </div>
-                          <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
-                            <button
-                              onClick={() => {
-                                setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id);
-                                setShowSubAgendaEditor(false);
-                                setSubAgendaEditorContent('');
-                              }}
-                              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-500/10 transition-all cursor-pointer"
-                              title="세부 업무 추가"
-                            >
-                              <Plus size={11} />
-                              <span>세부항목</span>
-                            </button>
-                            <button
-                              onClick={() => handleRemoveAgenda(agenda.id)}
-                              className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
-                            >
-                              <X size={12} />
-                            </button>
+                        ) : (
+                          <div className="flex items-start gap-2 group">
+                            <span className="text-xs font-bold text-gray-500 w-5 mt-1">{idx + 1}.</span>
+                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => startEditAgenda(agenda)} title="클릭하여 수정">
+                              {isHtml ? (
+                                <RichContent html={agenda.title} className="text-sm" />
+                              ) : (
+                                <span className="text-sm text-gray-300 font-medium">{agenda.title}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                              <button
+                                onClick={() => startEditAgenda(agenda)}
+                                className="p-1 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-all cursor-pointer opacity-0 group-hover:opacity-100"
+                                title="수정"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSubAgendaParent(subAgendaParent === agenda.id ? null : agenda.id);
+                                  setShowSubAgendaEditor(false);
+                                  setSubAgendaEditorContent('');
+                                }}
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] text-brand-400 hover:text-brand-600 hover:bg-brand-500/10 transition-all cursor-pointer"
+                                title="세부 업무 추가"
+                              >
+                                <Plus size={11} />
+                                <span>세부항목</span>
+                              </button>
+                              <button
+                                onClick={() => handleRemoveAgenda(agenda.id)}
+                                className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
                           </div>
-                        </div>
+                        )}
                         {/* Sub-items */}
                         {agenda.children.map((sub, subIdx) => {
                           const subIsHtml = sub.title?.startsWith('<');
-                          return (
+                          const isSubEditing = editingAgendaId === sub.id;
+                          return isSubEditing ? (
+                            <div key={sub.id} className="ml-7 mt-0.5 mb-1.5">
+                              <AgendaEditor
+                                compact
+                                content={editingAgendaContent}
+                                onChange={setEditingAgendaContent}
+                                onConfirm={handleSaveEditAgenda}
+                                onCancel={cancelEditAgenda}
+                              />
+                            </div>
+                          ) : (
                             <div key={sub.id} className="flex items-start gap-2 group ml-7 mt-0.5">
                               <span className="text-[11px] text-gray-600 w-8 mt-0.5">{idx + 1}.{subIdx + 1}</span>
-                              <div className="flex-1 min-w-0">
+                              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => startEditAgenda(sub)} title="클릭하여 수정">
                                 {subIsHtml ? (
                                   <RichContent html={sub.title} className="text-xs" />
                                 ) : (
                                   <span className="text-xs text-gray-400">{sub.title}</span>
                                 )}
                               </div>
-                              <button
-                                onClick={() => handleRemoveAgenda(sub.id)}
-                                className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer shrink-0"
-                              >
-                                <X size={10} />
-                              </button>
+                              <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => startEditAgenda(sub)}
+                                  className="p-1 rounded hover:bg-white/10 text-gray-600 hover:text-gray-300 transition-all cursor-pointer"
+                                  title="수정"
+                                >
+                                  <Pencil size={10} />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveAgenda(sub.id)}
+                                  className="p-1 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-all cursor-pointer"
+                                >
+                                  <X size={10} />
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
