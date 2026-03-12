@@ -37,10 +37,10 @@ export const newsService = {
   // ---- 실시간 API에서 뉴스 가져오기 ----
   async fetchNaverNews(query = '슈퍼레이스', display = 10) {
     try {
-      const res = await fetch(`${API_BASE}/api/news/naver`, {
+      const res = await fetch(`${API_BASE}/api/news/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, display, sort: 'date' }),
+        body: JSON.stringify({ source: 'naver', query, display, sort: 'date' }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -56,10 +56,10 @@ export const newsService = {
 
   async fetchGoogleNews(query = 'super race korea') {
     try {
-      const res = await fetch(`${API_BASE}/api/news/google`, {
+      const res = await fetch(`${API_BASE}/api/news/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ source: 'google', query }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
