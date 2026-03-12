@@ -4,30 +4,21 @@ import {
   ListChecks,
   Loader,
   CheckCircle2,
-  TrendingUp,
   CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
   Newspaper,
-  ArrowUpRight,
   Clock,
   Target,
+  Megaphone,
 } from 'lucide-react';
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { useApp } from '../context/AppContext';
-import { analyticsService } from '../services/analyticsService';
 import { newsService } from '../services/newsService';
 import { kpiService } from '../services/kpiService';
+import { ticketService } from '../services/ticketService';
 import { aiService } from '../services/aiService';
+import { noticesService } from '../services/noticesService';
 import AiInsightCard from '../components/AiInsightCard';
 
 // ---------------------------------------------------------------------------
@@ -137,24 +128,6 @@ function ProgressBar({ value }) {
   );
 }
 
-function CustomTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-surface-800 rounded-lg shadow-lg border border-surface-700 p-3 text-xs">
-      <p className="font-semibold text-gray-300 mb-1.5">{label}</p>
-      {payload.map((entry) => (
-        <div key={entry.name} className="flex items-center gap-2 py-0.5">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
-          <span className="text-gray-400">{entry.name}:</span>
-          <span className="font-medium text-gray-300">
-            {Number(entry.value).toLocaleString('ko-KR')}명
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function MiniCalendar({ month, setMonth, events, tasks }) {
   const year = month.getFullYear();
   const m = month.getMonth();
@@ -233,10 +206,10 @@ function MiniCalendar({ month, setMonth, events, tasks }) {
 export default function Dashboard() {
   const { tasks, members, calendarEvents, loading } = useApp();
 
-  const [snsOverview, setSnsOverview] = useState([]);
-  const [ytGrowthData, setYtGrowthData] = useState([]);
   const [newsArticles, setNewsArticles] = useState([]);
   const [kpiItems, setKpiItems] = useState([]);
+  const [ticketSummary, setTicketSummary] = useState(null);
+  const [notices, setNotices] = useState([]);
   const [extraLoading, setExtraLoading] = useState(true);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -246,16 +219,39 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      analyticsService.getOverview(),
-      analyticsService.getYoutubeGrowthData(),
       newsService.getAll(),
       kpiService.getAll().catch(() => []),
+      ticketService.getRounds().catch(() => []),
+      noticesService.getActive().catch(() => []),
     ])
-      .then(([overview, growth, news, kpis]) => {
-        setSnsOverview(overview);
-        setYtGrowthData(growth);
+      .then(async ([news, kpis, rounds, noticeList]) => {
         setNewsArticles(news);
         setKpiItems(kpis);
+        setNotices(noticeList || []);
+
+        // 티켓 판매 요약: 최신 라운드의 판매 데이터
+        if (rounds.length > 0) {
+          const latestRound = rounds[rounds.length - 1];
+          try {
+            const sales = await ticketService.getSales(latestRound.id);
+            if (sales.length > 0) {
+              const latestSale = sales[sales.length - 1];
+              const salesData = latestSale.sales || {};
+              const totalSold = Object.values(salesData).reduce((sum, v) => sum + (Number(v) || 0), 0);
+              const goal = latestRound.goal || 0;
+              const pct = goal > 0 ? Math.round((totalSold / goal) * 100) : 0;
+              setTicketSummary({
+                roundName: latestRound.name,
+                totalSold,
+                goal,
+                pct,
+                date: latestSale.sale_date,
+              });
+            }
+          } catch {
+            // 판매 데이터 없으면 무시
+          }
+        }
       })
       .catch(console.error)
       .finally(() => setExtraLoading(false));
@@ -270,16 +266,6 @@ export default function Dashboard() {
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, todo, inProgress, done, completionRate };
   }, [tasks]);
-
-  const totalReach = useMemo(() => {
-    if (!snsOverview.length) return '0만';
-    let raw = 0;
-    snsOverview.forEach((p) => {
-      const num = parseFloat((p.total_views || '0').replace(/[^0-9.]/g, ''));
-      raw += num;
-    });
-    return `${raw.toLocaleString('ko-KR')}만`;
-  }, [snsOverview]);
 
   // 담당자별 업무 그룹화
   const tasksByAssignee = useMemo(() => {
@@ -341,7 +327,8 @@ export default function Dashboard() {
     setDashboardAiLoading(true);
     try {
       const overdue = tasks.filter((t) => t.status !== 'done' && t.deadline && new Date(t.deadline) < new Date()).length;
-      const context = `업무 현황: 전체 ${stats.total}건 (예정 ${stats.todo}, 진행 ${stats.inProgress}, 완료 ${stats.done}), 완료율 ${stats.completionRate}%, 마감 초과 ${overdue}건. 팀원 ${members.length}명. SNS 채널: ${snsOverview.map((s) => `${s.platform} 구독자 ${s.subscribers}`).join(', ')}.`;
+      const ticketCtx = ticketSummary ? `티켓 판매: ${ticketSummary.roundName} ${ticketSummary.totalSold}/${ticketSummary.goal}매 (${ticketSummary.pct}%).` : '';
+      const context = `업무 현황: 전체 ${stats.total}건 (예정 ${stats.todo}, 진행 ${stats.inProgress}, 완료 ${stats.done}), 완료율 ${stats.completionRate}%, 마감 초과 ${overdue}건. 팀원 ${members.length}명. ${ticketCtx}`;
       const data = await aiService.analyze('dashboard', context, '현재 팀 상황을 분석하고, 이번 주 가장 중요한 3가지 우선순위와 리스크를 알려주세요. 마감 초과 업무가 있다면 강조해주세요.');
       setDashboardAi(data.insight || '');
     } catch (err) {
@@ -398,17 +385,16 @@ export default function Dashboard() {
           sub={`${stats.done}/${stats.total} 업무 완료`}
         />
         <KpiCard
-          icon={TrendingUp}
+          icon={Target}
           iconBg="bg-purple-500"
-          label="SNS 도달"
-          value={totalReach}
+          label="티켓 판매"
+          value={ticketSummary ? ticketSummary.totalSold.toLocaleString('ko-KR') + '매' : '-'}
           extra={
-            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-green-400 bg-green-500/20 rounded-full px-2 py-0.5">
-              <ArrowUpRight className="w-3 h-3" />
-              +15.5%
-            </span>
+            ticketSummary && ticketSummary.goal > 0 ? (
+              <CircularProgress percentage={Math.min(ticketSummary.pct, 100)} />
+            ) : null
           }
-          sub="YouTube + Instagram + TikTok 합산"
+          sub={ticketSummary ? `${ticketSummary.roundName} · 목표 ${ticketSummary.goal.toLocaleString('ko-KR')}매 (${ticketSummary.pct}%)` : '등록된 라운드 없음'}
         />
       </div>
 
@@ -561,45 +547,33 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* YouTube Subscriber Chart */}
+          {/* Notices */}
           <div className="bg-surface-800 rounded-xl shadow-sm p-5">
             <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2 mb-4">
-              <TrendingUp className="w-4.5 h-4.5 text-red-500" />
-              YouTube 구독자 추이
+              <Megaphone className="w-4.5 h-4.5 text-yellow-500" />
+              공지사항
             </h2>
-            {ytGrowthData.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-10">채널을 등록하고 데이터를 수집하면 표시됩니다</p>
+            {notices.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">등록된 공지사항이 없습니다</p>
             ) : (
-              <div className="h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={ytGrowthData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="gradYTSub" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#FF0000" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#FF0000" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#21262d" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 11, fill: '#6b7280' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v) => {
-                        const parts = v.split('-');
-                        return `${parts[1]}.${parts[2]}`;
-                      }}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: '#6b7280' }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v) => `${(v / 10000).toFixed(0)}만`}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="subscribers" name="구독자" stroke="#FF0000" strokeWidth={2} fill="url(#gradYTSub)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div className="space-y-2">
+                {notices.slice(0, 5).map((notice) => (
+                  <a
+                    key={notice.id}
+                    href={`/notices?id=${notice.id}`}
+                    className="flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-white/5 transition-colors group"
+                  >
+                    {notice.is_pinned && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 shrink-0">고정</span>
+                    )}
+                    <p className="text-sm text-gray-300 truncate flex-1 group-hover:text-brand-500 transition-colors">
+                      {notice.title}
+                    </p>
+                    <span className="text-[10px] text-gray-600 shrink-0">
+                      {notice.created_at?.slice(5, 10)}
+                    </span>
+                  </a>
+                ))}
               </div>
             )}
           </div>
