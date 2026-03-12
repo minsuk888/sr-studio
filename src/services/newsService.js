@@ -117,10 +117,10 @@ export const newsService = {
   // ---- 네이버 블로그 검색 ----
   async fetchNaverBlog(query = '슈퍼레이스', display = 10, sort = 'date') {
     try {
-      const res = await fetch(`${API_BASE}/api/sns/naver-blog`, {
+      const res = await fetch(`${API_BASE}/api/sns/naver-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, display, sort }),
+        body: JSON.stringify({ type: 'blog', query, display, sort }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -137,10 +137,10 @@ export const newsService = {
   // ---- 네이버 카페 검색 ----
   async fetchNaverCafe(query = '슈퍼레이스', display = 10, sort = 'date') {
     try {
-      const res = await fetch(`${API_BASE}/api/sns/naver-cafe`, {
+      const res = await fetch(`${API_BASE}/api/sns/naver-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, display, sort }),
+        body: JSON.stringify({ type: 'cafe', query, display, sort }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
