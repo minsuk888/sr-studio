@@ -1,23 +1,158 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import Image from '@tiptap/extension-image';
+import { Extension } from '@tiptap/core';
 import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
-  Heading1,
-  Heading2,
-  Heading3,
   List,
   ListOrdered,
   ImagePlus,
   Palette,
   X,
+  Type,
+  ChevronDown,
 } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
+
+// ---- Custom FontSize extension ----
+const FontSize = Extension.create({
+  name: 'fontSize',
+
+  addOptions() {
+    return { types: ['textStyle'] };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.types,
+        attributes: {
+          fontSize: {
+            default: null,
+            parseHTML: (el) => el.style.fontSize?.replace(/['"]+/g, '') || null,
+            renderHTML: (attrs) => {
+              if (!attrs.fontSize) return {};
+              return { style: `font-size: ${attrs.fontSize}` };
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      setFontSize:
+        (size) =>
+        ({ chain }) =>
+          chain().setMark('textStyle', { fontSize: size }).run(),
+      unsetFontSize:
+        () =>
+        ({ chain }) =>
+          chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
+    };
+  },
+});
+
+// ---- Resizable Image extension ----
+function ResizableImageComponent({ node, updateAttributes, selected }) {
+  const [resizing, setResizing] = useState(false);
+  const imgRef = useRef(null);
+  const startRef = useRef({ x: 0, width: 0 });
+
+  const onMouseDown = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const img = imgRef.current;
+    if (!img) return;
+    startRef.current = { x: e.clientX, width: img.offsetWidth };
+    setResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    const onMouseMove = (e) => {
+      const diff = e.clientX - startRef.current.x;
+      const newWidth = Math.max(50, startRef.current.width + diff);
+      updateAttributes({ width: `${newWidth}px` });
+    };
+
+    const onMouseUp = () => setResizing(false);
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [resizing, updateAttributes]);
+
+  return (
+    <NodeViewWrapper as="span" className="inline-block relative group">
+      <img
+        ref={imgRef}
+        src={node.attrs.src}
+        alt={node.attrs.alt || ''}
+        style={{ width: node.attrs.width || 'auto', maxWidth: '100%', height: 'auto' }}
+        className={`rounded ${selected ? 'ring-2 ring-brand-500' : ''}`}
+        draggable={false}
+      />
+      {/* Resize handle */}
+      <div
+        onMouseDown={onMouseDown}
+        className="absolute right-0 bottom-0 w-4 h-4 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
+        title="드래그하여 크기 조절"
+      >
+        <svg viewBox="0 0 16 16" className="w-full h-full text-brand-400 drop-shadow">
+          <path d="M14 14H10M14 14V10M14 14L8 8" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+        </svg>
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+const ResizableImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('width') || el.style.width || null,
+        renderHTML: (attrs) => {
+          if (!attrs.width) return {};
+          return { width: attrs.width, style: `width: ${attrs.width}` };
+        },
+      },
+    };
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(ResizableImageComponent);
+  },
+});
+
+// ---- Constants ----
+const FONT_SIZES = [
+  { label: '8pt', value: '8pt' },
+  { label: '9pt', value: '9pt' },
+  { label: '10pt', value: '10pt' },
+  { label: '11pt', value: '11pt' },
+  { label: '12pt', value: '12pt' },
+  { label: '13pt', value: '13pt' },
+  { label: '14pt', value: '14pt' },
+  { label: '15pt', value: '15pt' },
+  { label: '16pt', value: '16pt' },
+  { label: '17pt', value: '17pt' },
+  { label: '18pt', value: '18pt' },
+  { label: '19pt', value: '19pt' },
+  { label: '20pt', value: '20pt' },
+];
 
 const PRESET_COLORS = [
   { label: '빨강', value: '#ef4444' },
@@ -32,6 +167,7 @@ const PRESET_COLORS = [
   { label: '회색', value: '#9ca3af' },
 ];
 
+// ---- Sub-components ----
 function ToolbarButton({ onClick, isActive, children, title }) {
   return (
     <button
@@ -49,14 +185,60 @@ function ToolbarButton({ onClick, isActive, children, title }) {
   );
 }
 
+function FontSizePicker({ editor, onClose }) {
+  const ref = useRef(null);
+  const currentSize = editor.getAttributes('textStyle').fontSize || null;
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="absolute top-full left-0 mt-1 py-1 bg-surface-800 border border-surface-600 rounded-lg shadow-xl z-50 max-h-52 overflow-y-auto w-20"
+    >
+      <button
+        type="button"
+        onClick={() => {
+          editor.chain().focus().unsetFontSize().run();
+          onClose();
+        }}
+        className={`w-full text-left px-3 py-1 text-xs hover:bg-white/10 cursor-pointer ${
+          !currentSize ? 'text-brand-400 font-semibold' : 'text-gray-400'
+        }`}
+      >
+        기본
+      </button>
+      {FONT_SIZES.map((s) => (
+        <button
+          key={s.value}
+          type="button"
+          onClick={() => {
+            editor.chain().focus().setFontSize(s.value).run();
+            onClose();
+          }}
+          className={`w-full text-left px-3 py-1 text-xs hover:bg-white/10 cursor-pointer ${
+            currentSize === s.value ? 'text-brand-400 font-semibold' : 'text-gray-300'
+          }`}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ColorPicker({ editor, onClose }) {
   const ref = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        onClose();
-      }
+      if (ref.current && !ref.current.contains(e.target)) onClose();
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -95,24 +277,24 @@ function ColorPicker({ editor, onClose }) {
   );
 }
 
+// ---- Main component ----
 export default function AgendaEditor({ content = '', onChange, onConfirm, onCancel, compact = false }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showFontSizePicker, setShowFontSizePicker] = useState(false);
   const fileInputRef = useRef(null);
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: false,
       }),
       Underline,
       TextStyle,
       Color,
-      Image.configure({
+      FontSize,
+      ResizableImage.configure({
         inline: true,
         allowBase64: true,
-        HTMLAttributes: {
-          class: 'max-w-full h-auto rounded',
-        },
       }),
     ],
     content,
@@ -182,11 +364,9 @@ export default function AgendaEditor({ content = '', onChange, onConfirm, onCanc
     [handleImageFile],
   );
 
-  const toggleColorPicker = useCallback(() => {
-    setShowColorPicker((prev) => !prev);
-  }, []);
-
   if (!editor) return null;
+
+  const currentFontSize = editor.getAttributes('textStyle').fontSize || '기본';
 
   return (
     <div className="border border-surface-600 rounded-lg overflow-hidden bg-surface-900">
@@ -216,27 +396,26 @@ export default function AgendaEditor({ content = '', onChange, onConfirm, onCanc
 
         <div className="w-px h-4 bg-surface-700 mx-0.5" />
 
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          isActive={editor.isActive('heading', { level: 1 })}
-          title="제목 1"
-        >
-          <Heading1 className="w-3.5 h-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          isActive={editor.isActive('heading', { level: 2 })}
-          title="제목 2"
-        >
-          <Heading2 className="w-3.5 h-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          isActive={editor.isActive('heading', { level: 3 })}
-          title="제목 3"
-        >
-          <Heading3 className="w-3.5 h-3.5" />
-        </ToolbarButton>
+        {/* Font Size Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowFontSizePicker((prev) => !prev)}
+            title="글자 크기"
+            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
+              showFontSizePicker
+                ? 'bg-brand-500/20 text-brand-400'
+                : 'text-gray-400 hover:bg-white/10 hover:text-gray-200'
+            }`}
+          >
+            <Type className="w-3 h-3" />
+            <span className="min-w-[24px] text-center">{currentFontSize}</span>
+            <ChevronDown className="w-2.5 h-2.5" />
+          </button>
+          {showFontSizePicker && (
+            <FontSizePicker editor={editor} onClose={() => setShowFontSizePicker(false)} />
+          )}
+        </div>
 
         <div className="w-px h-4 bg-surface-700 mx-0.5" />
 
@@ -259,7 +438,7 @@ export default function AgendaEditor({ content = '', onChange, onConfirm, onCanc
 
         <div className="relative">
           <ToolbarButton
-            onClick={toggleColorPicker}
+            onClick={() => setShowColorPicker((prev) => !prev)}
             isActive={showColorPicker}
             title="텍스트 색상"
           >
