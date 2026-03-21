@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { aiService } from '../services/aiService';
 import AiInsightCard from '../components/AiInsightCard';
 import TaskListView from '../components/tasks/TaskListView';
+import { getDeadlineStatus } from '../utils/deadlineStatus';
 import TaskModal from '../components/tasks/TaskModal';
 import {
   Plus,
@@ -190,12 +191,15 @@ export default function Tasks() {
                 {member.name}
               </span>
             )}
-            {task.deadline && (
-              <>
-                <span className="text-gray-600">·</span>
-                <span>{task.deadline}</span>
-              </>
-            )}
+            {task.deadline && (() => {
+              const d = getDeadlineStatus(task.deadline);
+              return (
+                <>
+                  <span className="text-gray-600">·</span>
+                  <span className={`px-1 py-0.5 rounded text-[10px] ${d.cls}`}>{d.label}</span>
+                </>
+              );
+            })()}
             <span className="flex-1" />
             <div className="w-14 h-1 bg-surface-700 rounded-full overflow-hidden shrink-0">
               <div className="h-full rounded-full transition-all" style={{ width: `${task.progress}%`, backgroundColor: progressColor }} />

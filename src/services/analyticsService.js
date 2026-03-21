@@ -344,19 +344,23 @@ export const analyticsService = {
     return await res.json();
   },
 
-  async getMonitoringKeywords() {
-    const { data, error } = await supabase
+  async getMonitoringKeywords(category = 'superrace') {
+    let query = supabase
       .from('sns_monitoring_keywords')
       .select('*')
       .order('created_at', { ascending: true });
+    if (category) {
+      query = query.eq('category', category);
+    }
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
 
-  async addMonitoringKeyword(keyword, platform = 'youtube') {
+  async addMonitoringKeyword(keyword, platform = 'youtube', category = 'superrace') {
     const { data, error } = await supabase
       .from('sns_monitoring_keywords')
-      .insert({ keyword, platform })
+      .insert({ keyword, platform, category })
       .select()
       .single();
     if (error) throw error;

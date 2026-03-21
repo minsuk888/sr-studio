@@ -152,9 +152,9 @@ export const trendService = {
   },
 
   // ---- 키워드 CRUD (analyticsService 위임) ----
-  getKeywords: () => analyticsService.getMonitoringKeywords(),
-  addKeyword: (keyword, platform) =>
-    analyticsService.addMonitoringKeyword(keyword, platform),
+  getKeywords: (category) => analyticsService.getMonitoringKeywords(category),
+  addKeyword: (keyword, platform, category) =>
+    analyticsService.addMonitoringKeyword(keyword, platform, category),
   removeKeyword: (id) => analyticsService.removeMonitoringKeyword(id),
 };
 

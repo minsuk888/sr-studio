@@ -10,6 +10,7 @@ import {
   ListTodo,
   Plus,
 } from 'lucide-react';
+import { getDeadlineStatus } from '../../utils/deadlineStatus';
 
 const statusOrder = ['in-progress', 'todo', 'done'];
 
@@ -204,7 +205,10 @@ export default function TaskListView({
       <StatusBadge status={task.status} onClick={() => cycleStatus(task)} />
       <PriorityBadge priority={task.priority} />
       <ProgressBarClickable task={task} />
-      <span className="text-xs text-gray-500 w-20 shrink-0 text-right">{task.deadline || '-'}</span>
+      {(() => {
+        const d = getDeadlineStatus(task.deadline);
+        return <span className={`text-[11px] w-20 shrink-0 text-right px-1 py-0.5 rounded ${d.cls}`}>{d.label}</span>;
+      })()}
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
         <button
           onClick={() => openEditModal(task)}

@@ -20,6 +20,7 @@ import { ticketService } from '../services/ticketService';
 import { aiService } from '../services/aiService';
 import { noticesService } from '../services/noticesService';
 import AiInsightCard from '../components/AiInsightCard';
+import { getDeadlineStatus } from '../utils/deadlineStatus';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,14 +61,6 @@ const kpiStatusConfig = {
   completed: { label: '달성', color: 'text-brand-400', bg: 'bg-brand-500/20' },
 };
 
-function deadlineBadge(deadline) {
-  if (!deadline) return { label: '-', cls: 'text-gray-500 bg-white/5' };
-  const diff = Math.ceil((new Date(deadline) - today) / (1000 * 60 * 60 * 24));
-  if (diff < 0) return { label: '기한 초과', cls: 'text-red-400 bg-red-500/20' };
-  if (diff <= 3) return { label: `D-${diff}`, cls: 'text-orange-400 bg-orange-500/20' };
-  if (diff <= 7) return { label: `D-${diff}`, cls: 'text-yellow-400 bg-yellow-500/20' };
-  return { label: `D-${diff}`, cls: 'text-gray-400 bg-white/5' };
-}
 
 // ---------------------------------------------------------------------------
 // Sub-components
@@ -487,7 +480,7 @@ export default function Dashboard() {
                   <div className="space-y-1 ml-6">
                     {memberTasks.slice(0, 3).map((task) => {
                       const p = priorityConfig[task.priority];
-                      const d = deadlineBadge(task.deadline);
+                      const d = getDeadlineStatus(task.deadline);
                       return (
                         <div key={task.id} className="flex items-center gap-2">
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${p.dot}`} />
