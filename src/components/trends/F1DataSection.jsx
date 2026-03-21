@@ -145,6 +145,129 @@ function MeetingCard({ meeting, isUpcoming }) {
   );
 }
 
+function LatestRaceResults() {
+  const [results, setResults] = useState(null);
+  const [raceName, setRaceName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const meetings = await f1Service.getMeetings();
+        if (!meetings || meetings.length === 0) {
+          setError('미팅 데이터 없음');
+          return;
+        }
+
+        const now = new Date();
+        const pastMeetings = meetings.filter((m) => new Date(m.date_start) < now);
+        if (pastMeetings.length === 0) {
+          setError('완료된 레이스가 없습니다');
+          return;
+        }
+
+        const latestMeeting = pastMeetings[pastMeetings.length - 1];
+        setRaceName(latestMeeting.meeting_name);
+
+        const sessions = await f1Service.getSessions(latestMeeting.meeting_key);
+        const raceSession = sessions?.find((s) => s.session_name === 'Race');
+        if (!raceSession) {
+          setError('결승 세션 데이터 없음');
+          return;
+        }
+
+        const [positions, drivers] = await Promise.all([
+          f1Service.getPositions(raceSession.session_key),
+          f1Service.getDrivers(raceSession.session_key),
+        ]);
+
+        const driverMap = new Map();
+        (drivers || []).forEach((d) => {
+          driverMap.set(d.driver_number, d);
+        });
+
+        const top10 = (positions || []).slice(0, 10).map((pos) => {
+          const driver = driverMap.get(pos.driver_number) || {};
+          return {
+            position: pos.position,
+            name: driver.full_name || driver.name_acronym || `#${pos.driver_number}`,
+            team: driver.team_name || '-',
+            number: pos.driver_number,
+          };
+        });
+
+        setResults(top10);
+      } catch (err) {
+        console.error('최신 레이스 결과 로드 실패:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-xs text-gray-400 justify-center">
+        <Loader size={12} className="animate-spin" />
+        최신 레이스 결과 로딩 중...
+      </div>
+    );
+  }
+
+  if (error || !results) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-xs text-gray-500">{error || '결과 데이터 없음'}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <Trophy size={18} className="text-yellow-500" />
+        <h2 className="text-base font-semibold text-white">
+          최신 레이스 결과
+        </h2>
+        <span className="text-[10px] text-gray-600 bg-surface-700 px-2 py-0.5 rounded-full">
+          {raceName}
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-surface-700 bg-surface-800 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-surface-700 bg-surface-900/50">
+              <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-500 w-16">순위</th>
+              <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-500">드라이버</th>
+              <th className="text-left px-4 py-2.5 text-[11px] font-medium text-gray-500">팀</th>
+            </tr>
+          </thead>
+          <tbody>
+            {results.map((r) => (
+              <tr key={r.number} className="border-b border-surface-700/50 last:border-b-0 hover:bg-white/5">
+                <td className="px-4 py-2.5">
+                  <span className={`text-xs font-bold ${
+                    r.position === 1 ? 'text-yellow-400' :
+                    r.position === 2 ? 'text-gray-300' :
+                    r.position === 3 ? 'text-amber-600' : 'text-gray-400'
+                  }`}>
+                    P{r.position}
+                  </span>
+                </td>
+                <td className="px-4 py-2.5 text-xs text-white font-medium">{r.name}</td>
+                <td className="px-4 py-2.5 text-xs text-gray-400">{r.team}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function F1DataSection() {
   const [meetings, setMeetings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -192,44 +315,50 @@ export default function F1DataSection() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Calendar size={18} className="text-red-500" />
-          <h2 className="text-base font-semibold text-white">
-            {now.getFullYear()} F1 시즌 일정
-          </h2>
-          <span className="text-[10px] text-gray-600 bg-surface-700 px-2 py-0.5 rounded-full">
-            {meetings.length}개 라운드
-          </span>
+    <div className="space-y-8">
+      {/* Season Schedule */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Calendar size={18} className="text-red-500" />
+            <h2 className="text-base font-semibold text-white">
+              {now.getFullYear()} F1 시즌 일정
+            </h2>
+            <span className="text-[10px] text-gray-600 bg-surface-700 px-2 py-0.5 rounded-full">
+              {meetings.length}개 라운드
+            </span>
+          </div>
+          <button
+            onClick={() => setShowAll(!showAll)}
+            className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
+          >
+            {showAll ? '요약 보기' : '전체 일정 보기'}
+          </button>
         </div>
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer"
-        >
-          {showAll ? '요약 보기' : '전체 일정 보기'}
-        </button>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {displayMeetings.map((meeting, idx) => {
+            const originalIdx = showAll ? idx : Math.max(0, upcomingIdx - 2) + idx;
+            return (
+              <MeetingCard
+                key={meeting.meeting_key}
+                meeting={meeting}
+                isUpcoming={originalIdx === upcomingIdx}
+              />
+            );
+          })}
+        </div>
+
+        {meetings.length === 0 && (
+          <div className="text-center py-12">
+            <Calendar size={36} className="text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-400">시즌 일정이 아직 등록되지 않았습니다</p>
+          </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {displayMeetings.map((meeting, idx) => {
-          const originalIdx = showAll ? idx : Math.max(0, upcomingIdx - 2) + idx;
-          return (
-            <MeetingCard
-              key={meeting.meeting_key}
-              meeting={meeting}
-              isUpcoming={originalIdx === upcomingIdx}
-            />
-          );
-        })}
-      </div>
-
-      {meetings.length === 0 && (
-        <div className="text-center py-12">
-          <Calendar size={36} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-sm text-gray-400">시즌 일정이 아직 등록되지 않았습니다</p>
-        </div>
-      )}
+      {/* Latest Race Results */}
+      <LatestRaceResults />
     </div>
   );
 }

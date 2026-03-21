@@ -1,15 +1,11 @@
 import { useState } from 'react';
-import { Search, Globe, Flag, Sparkles } from 'lucide-react';
+import { Search, Globe } from 'lucide-react';
 import SuperraceMonitor from '../components/trends/SuperraceMonitor';
 import F1Tab from '../components/trends/F1Tab';
-import DomesticTab from '../components/trends/DomesticTab';
-import AiTrendTab from '../components/trends/AiTrendTab';
 
 const TABS = [
   { id: 'superrace', label: '슈퍼레이스 모니터링', icon: Search },
   { id: 'f1', label: 'F1 / 해외', icon: Globe },
-  { id: 'domestic', label: '국내 모터스포츠', icon: Flag },
-  { id: 'ai', label: 'AI 트렌드 분석', icon: Sparkles },
 ];
 
 export default function Trends() {
@@ -20,7 +16,7 @@ export default function Trends() {
       <div>
         <h1 className="text-2xl font-bold text-white">모터스포츠 트렌드</h1>
         <p className="text-sm text-gray-400 mt-1">
-          모터스포츠 업계 동향과 슈퍼레이스 관련 콘텐츠를 모니터링합니다
+          슈퍼레이스와 F1 관련 콘텐츠를 모니터링합니다
         </p>
       </div>
 
@@ -49,8 +45,6 @@ export default function Trends() {
       {/* Tab Content */}
       {activeTab === 'superrace' && <SuperraceMonitor />}
       {activeTab === 'f1' && <F1Tab />}
-      {activeTab === 'domestic' && <DomesticTab />}
-      {activeTab === 'ai' && <AiTrendTab />}
     </div>
   );
 }
