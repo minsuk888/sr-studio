@@ -16,7 +16,34 @@ import {
 import { trendService } from '../../services/trendService';
 import { YoutubeCard, NewsCard, BlogCard, CafeCard, formatDate } from './ResultCards';
 
+// Static class map — Tailwind JIT can detect these at build time
+const ACCENT = {
+  emerald: {
+    icon: 'text-emerald-500',
+    btn: 'bg-emerald-500 hover:bg-emerald-600',
+    btnLight: 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20',
+    tag: 'bg-emerald-500/10 text-emerald-400',
+    ring: 'focus:ring-emerald-500',
+  },
+  red: {
+    icon: 'text-red-500',
+    btn: 'bg-red-500 hover:bg-red-600',
+    btnLight: 'bg-red-500/10 text-red-400 hover:bg-red-500/20',
+    tag: 'bg-red-500/10 text-red-400',
+    ring: 'focus:ring-red-500',
+  },
+  blue: {
+    icon: 'text-blue-500',
+    btn: 'bg-blue-500 hover:bg-blue-600',
+    btnLight: 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20',
+    tag: 'bg-blue-500/10 text-blue-400',
+    ring: 'focus:ring-blue-500',
+  },
+};
+
 export default function KeywordMonitor({ category = 'superrace', title = '모니터링', accentColor = 'emerald' }) {
+  const c = ACCENT[accentColor] || ACCENT.emerald;
+
   const [keywords, setKeywords] = useState([]);
   const [newKeyword, setNewKeyword] = useState('');
   const [youtubeResults, setYoutubeResults] = useState([]);
@@ -167,7 +194,7 @@ export default function KeywordMonitor({ category = 'superrace', title = '모니
       {/* 헤더 + 새로고침 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Search size={18} className={`text-${accentColor}-500`} />
+          <Search size={18} className={c.icon} />
           <h2 className="text-base font-semibold text-white">{title}</h2>
           {lastFetched && (
             <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -184,7 +211,7 @@ export default function KeywordMonitor({ category = 'superrace', title = '모니
         <button
           onClick={handleRefresh}
           disabled={refreshing || loading}
-          className={`flex items-center gap-1.5 px-3 py-1.5 bg-${accentColor}-500 text-white text-xs font-medium rounded-lg hover:bg-${accentColor}-600 transition-colors disabled:opacity-50 cursor-pointer`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 ${c.btn} text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 cursor-pointer`}
         >
           <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
           {refreshing ? '검색 중...' : '새로고침'}
@@ -200,11 +227,11 @@ export default function KeywordMonitor({ category = 'superrace', title = '모니
             onChange={(e) => setNewKeyword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.isComposing && handleAddKeyword()}
             placeholder="모니터링 키워드 추가 (예: 슈퍼레이스, SUPERRACE)"
-            className={`flex-1 px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-${accentColor}-500 focus:border-transparent`}
+            className={`flex-1 px-3 py-2 bg-surface-700 border border-surface-600 rounded-lg text-sm text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-2 ${c.ring} focus:border-transparent`}
           />
           <button
             onClick={handleAddKeyword}
-            className={`flex items-center gap-1 px-3 py-2 bg-${accentColor}-500/10 text-${accentColor}-400 text-sm font-medium rounded-lg hover:bg-${accentColor}-500/20 transition-colors cursor-pointer`}
+            className={`flex items-center gap-1 px-3 py-2 ${c.btnLight} text-sm font-medium rounded-lg transition-colors cursor-pointer`}
           >
             <Plus size={14} />
             추가
@@ -215,7 +242,7 @@ export default function KeywordMonitor({ category = 'superrace', title = '모니
             {keywords.map((kw) => (
               <span
                 key={kw.id}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 bg-${accentColor}-500/10 text-${accentColor}-400 text-xs font-medium rounded-full`}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 ${c.tag} text-xs font-medium rounded-full`}
               >
                 <Tag size={11} />
                 {kw.keyword}

@@ -344,17 +344,14 @@ export const analyticsService = {
     return await res.json();
   },
 
-  async getMonitoringKeywords(category = 'superrace') {
-    let query = supabase
+  async getMonitoringKeywords(category) {
+    const { data, error } = await supabase
       .from('sns_monitoring_keywords')
       .select('*')
       .order('created_at', { ascending: true });
-    if (category) {
-      query = query.eq('category', category);
-    }
-    const { data, error } = await query;
     if (error) throw error;
-    return data;
+    if (!category || !data) return data;
+    return data.filter((row) => !row.category || row.category === category);
   },
 
   async addMonitoringKeyword(keyword, platform = 'youtube', category = 'superrace') {
@@ -363,7 +360,18 @@ export const analyticsService = {
       .insert({ keyword, platform, category })
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      if (error.code === '42703' || error.message?.includes('category')) {
+        const { data: fallback, error: fallbackErr } = await supabase
+          .from('sns_monitoring_keywords')
+          .insert({ keyword, platform })
+          .select()
+          .single();
+        if (fallbackErr) throw fallbackErr;
+        return fallback;
+      }
+      throw error;
+    }
     return data;
   },
 
