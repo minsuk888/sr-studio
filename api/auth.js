@@ -2,7 +2,7 @@
 // POST /api/auth  body: { action: 'login'|'change-password' }
 // GET  /api/auth?logs=true&type=login&limit=20
 
-import { handleCors, getAdminClient, hashPassword, verifyPassword, isHashed } from './_utils/security.js';
+import { handleCors, getAdminClient, hashPassword, verifyPassword } from './_utils/security.js';
 import { logAccess, extractClientInfo, DAILY_AI_LIMIT } from './_utils/rateLimit.js';
 
 export default async function handler(req, res) {
@@ -30,7 +30,11 @@ export default async function handler(req, res) {
 // ---- 로그인 ----
 async function handleLogin(req, res) {
   try {
-    const { password } = req.body || {};
+    const { username, password } = req.body || {};
+
+    if (!username || !username.trim()) {
+      return res.status(400).json({ success: false, error: '사용자 이름을 입력해주세요.' });
+    }
 
     if (!password || !password.trim()) {
       return res.status(400).json({ success: false, error: '비밀번호를 입력해주세요.' });
@@ -38,43 +42,40 @@ async function handleLogin(req, res) {
 
     const admin = getAdminClient();
 
-    const { data, error } = await admin
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'password')
+    const { data: member, error } = await admin
+      .from('members')
+      .select('id, name, role, avatar, is_admin, password_hash')
+      .eq('name', username)
       .single();
-
-    if (error || !data) {
-      console.error('Password fetch error:', error);
-      return res.status(500).json({ success: false, error: '설정을 불러올 수 없습니다.' });
-    }
-
-    const storedValue = data.value;
-    let isValid = false;
-
-    if (isHashed(storedValue)) {
-      isValid = verifyPassword(password, storedValue);
-    } else {
-      // 레거시: 평문 비밀번호 → 자동 해시 마이그레이션
-      isValid = (storedValue === password);
-
-      if (isValid) {
-        const hashed = hashPassword(password);
-        await admin
-          .from('app_settings')
-          .update({ value: hashed })
-          .eq('key', 'password');
-        console.log('Password auto-migrated to hash');
-      }
-    }
 
     const clientInfo = extractClientInfo(req);
 
+    if (error || !member) {
+      await logAccess(admin, 'login_fail', `사용자 찾기 실패: ${username}`, clientInfo).catch(() => {});
+      return res.status(401).json({ success: false, error: '사용자를 찾을 수 없습니다.' });
+    }
+
+    if (!member.password_hash) {
+      await logAccess(admin, 'login_fail', `비밀번호 미설정: ${username}`, clientInfo).catch(() => {});
+      return res.status(401).json({ success: false, error: '비밀번호가 설정되지 않았습니다. 관리자에게 문의하세요.' });
+    }
+
+    const isValid = verifyPassword(password, member.password_hash);
+
     if (isValid) {
-      await logAccess(admin, 'login', '로그인 성공', clientInfo).catch(() => {});
-      return res.status(200).json({ success: true });
+      await logAccess(admin, 'login', `로그인 성공: ${username}`, clientInfo).catch(() => {});
+      return res.status(200).json({
+        success: true,
+        user: {
+          id: member.id,
+          name: member.name,
+          role: member.role,
+          avatar: member.avatar,
+          is_admin: member.is_admin,
+        },
+      });
     } else {
-      await logAccess(admin, 'login_fail', '비밀번호 불일치', clientInfo).catch(() => {});
+      await logAccess(admin, 'login_fail', `비밀번호 불일치: ${username}`, clientInfo).catch(() => {});
       return res.status(401).json({ success: false, error: '비밀번호가 일치하지 않습니다.' });
     }
   } catch (err) {
@@ -86,10 +87,14 @@ async function handleLogin(req, res) {
 // ---- 비밀번호 변경 ----
 async function handleChangePassword(req, res) {
   try {
-    const { currentPassword, newPassword } = req.body || {};
+    const { memberId, currentPassword, newPassword, isAdminAction } = req.body || {};
 
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: '현재 비밀번호와 새 비밀번호를 입력해주세요.' });
+    if (!memberId) {
+      return res.status(400).json({ error: '멤버 ID가 필요합니다.' });
+    }
+
+    if (!newPassword) {
+      return res.status(400).json({ error: '새 비밀번호를 입력해주세요.' });
     }
 
     if (newPassword.length < 4) {
@@ -98,34 +103,44 @@ async function handleChangePassword(req, res) {
 
     const admin = getAdminClient();
 
-    const { data, error } = await admin
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'password')
+    if (isAdminAction) {
+      // 관리자 비밀번호 재설정: 현재 비밀번호 검증 생략
+      const { error: updateError } = await admin
+        .from('members')
+        .update({ password_hash: hashPassword(newPassword) })
+        .eq('id', memberId);
+
+      if (updateError) {
+        console.error('Admin password reset error:', updateError);
+        return res.status(500).json({ error: '비밀번호 변경에 실패했습니다.' });
+      }
+
+      return res.status(200).json({ success: true });
+    }
+
+    // 일반 비밀번호 변경: 현재 비밀번호 검증 필요
+    if (!currentPassword) {
+      return res.status(400).json({ error: '현재 비밀번호를 입력해주세요.' });
+    }
+
+    const { data: member, error: fetchError } = await admin
+      .from('members')
+      .select('id, password_hash')
+      .eq('id', memberId)
       .single();
 
-    if (error || !data) {
-      return res.status(500).json({ error: '설정을 불러올 수 없습니다.' });
+    if (fetchError || !member) {
+      return res.status(404).json({ error: '멤버를 찾을 수 없습니다.' });
     }
 
-    const storedValue = data.value;
-    let isCurrentValid = false;
-
-    if (isHashed(storedValue)) {
-      isCurrentValid = verifyPassword(currentPassword, storedValue);
-    } else {
-      isCurrentValid = (storedValue === currentPassword);
-    }
-
-    if (!isCurrentValid) {
+    if (!member.password_hash || !verifyPassword(currentPassword, member.password_hash)) {
       return res.status(401).json({ error: '현재 비밀번호가 일치하지 않습니다.' });
     }
 
-    const hashedNew = hashPassword(newPassword);
     const { error: updateError } = await admin
-      .from('app_settings')
-      .update({ value: hashedNew })
-      .eq('key', 'password');
+      .from('members')
+      .update({ password_hash: hashPassword(newPassword) })
+      .eq('id', memberId);
 
     if (updateError) {
       console.error('Password update error:', updateError);

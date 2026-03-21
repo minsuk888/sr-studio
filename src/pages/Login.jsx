@@ -1,22 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Flag, Lock, Loader, AlertCircle } from 'lucide-react';
+import { Flag, User, Loader, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
   const { login, loading } = useAuth();
   const navigate = useNavigate();
 
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    if (!username.trim() || !password.trim()) return;
 
     setError('');
-    const result = await login(password);
+    const result = await login(username, password);
 
     if (result.success) {
       navigate('/', { replace: true });
@@ -51,19 +52,28 @@ export default function Login() {
         <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-2xl">
           <div className="text-center mb-6">
             <div className="w-12 h-12 bg-slate-700/50 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <Lock className="w-5 h-5 text-gray-400" />
+              <User className="w-5 h-5 text-gray-400" />
             </div>
-            <p className="text-sm text-gray-400">비밀번호를 입력해주세요</p>
+            <p className="text-sm text-gray-400">이름과 비밀번호를 입력해주세요</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="이름"
+                autoFocus
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
+              />
+            </div>
             <div>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호"
-                autoFocus
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white text-center text-lg tracking-[0.3em] placeholder:text-gray-600 placeholder:tracking-normal focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:border-brand-500/50 transition-all"
               />
             </div>
@@ -77,7 +87,7 @@ export default function Login() {
 
             <button
               type="submit"
-              disabled={loading || !password.trim()}
+              disabled={loading || !username.trim() || !password.trim()}
               className="w-full flex items-center justify-center gap-2 py-3 bg-brand-500 text-white font-medium rounded-xl hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-500/25"
             >
               {loading ? (

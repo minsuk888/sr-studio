@@ -11,6 +11,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { getDeadlineStatus } from '../../utils/deadlineStatus';
+import { useAuth } from '../../context/AuthContext';
 
 const statusOrder = ['in-progress', 'todo', 'done'];
 
@@ -44,6 +45,7 @@ export default function TaskListView({
   addTask,
   filterMember,
 }) {
+  const { currentUser, isAdmin } = useAuth();
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [expandedDoneGroups, setExpandedDoneGroups] = useState({});
   const [quickAddTitle, setQuickAddTitle] = useState('');
@@ -135,7 +137,9 @@ export default function TaskListView({
     if (!quickAddTitle.trim()) return;
     addTask({
       title: quickAddTitle.trim(),
-      assignee: quickAddAssignee ? Number(quickAddAssignee) : (filterMember || members[0]?.id),
+      assignee: quickAddAssignee
+        ? Number(quickAddAssignee)
+        : (!isAdmin && currentUser ? currentUser.id : (filterMember || members[0]?.id)),
       priority: 'medium',
       status: 'todo',
       progress: 0,

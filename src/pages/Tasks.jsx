@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { aiService } from '../services/aiService';
 import AiInsightCard from '../components/AiInsightCard';
 import TaskListView from '../components/tasks/TaskListView';
@@ -41,6 +42,7 @@ const MEMBER_COLORS = [
 
 export default function Tasks() {
   const { tasks, members, addTask, updateTask, deleteTask, addMember, updateMember, deleteMember } = useApp();
+  const { currentUser, isAdmin } = useAuth();
 
   const [viewMode, setViewMode] = useState('kanban');
   const [modalOpen, setModalOpen] = useState(false);
@@ -307,6 +309,7 @@ export default function Tasks() {
     if (confirmDelete.type === 'task') {
       deleteTask(confirmDelete.id);
     } else {
+      if (!isAdmin) return;
       if (filterMember === confirmDelete.id) setFilterMember(null);
       deleteMember(confirmDelete.id);
     }
@@ -342,19 +345,21 @@ export default function Tasks() {
             <span className="text-base leading-none">{m.avatar}</span> {m.name}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
-          <button onClick={openAddMemberModal} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-400 bg-surface-800 hover:bg-white/5 border border-surface-700 transition-colors cursor-pointer whitespace-nowrap">
-            <UserPlus className="w-3.5 h-3.5" /> 팀원 추가
-          </button>
-          <button onClick={() => setTeamPanelOpen(!teamPanelOpen)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-400 bg-surface-800 hover:bg-white/5 border border-surface-700 transition-colors cursor-pointer whitespace-nowrap">
-            <Users className="w-3.5 h-3.5" /> 팀원 관리
-            {teamPanelOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={openAddMemberModal} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-400 bg-surface-800 hover:bg-white/5 border border-surface-700 transition-colors cursor-pointer whitespace-nowrap">
+              <UserPlus className="w-3.5 h-3.5" /> 팀원 추가
+            </button>
+            <button onClick={() => setTeamPanelOpen(!teamPanelOpen)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-gray-400 bg-surface-800 hover:bg-white/5 border border-surface-700 transition-colors cursor-pointer whitespace-nowrap">
+              <Users className="w-3.5 h-3.5" /> 팀원 관리
+              {teamPanelOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* team management panel */}
-      {teamPanelOpen && (
+      {isAdmin && teamPanelOpen && (
         <div className="bg-surface-800 rounded-xl shadow-sm border border-surface-700 p-5 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -433,7 +438,7 @@ export default function Tasks() {
       />
 
       {/* ===== Member Modal (inline) ===== */}
-      {memberModalOpen && (
+      {isAdmin && memberModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeMemberModal} />
           <div className="relative bg-surface-800 rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 z-10">

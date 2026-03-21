@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { kpiService } from '../../services/kpiService';
 import { useApp } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
 
 // ---- 카테고리 설정 ----
 const CATEGORIES = {
@@ -52,6 +53,7 @@ function renderInsightText(text) {
 
 export default function KpiContent() {
   const { members } = useApp();
+  const { currentUser, isAdmin } = useAuth();
   const [kpis, setKpis] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState('all');
@@ -112,7 +114,8 @@ export default function KpiContent() {
     setEditingKpi(null);
     setForm({
       title: '', category: 'sns_growth', target_value: '', current_value: '',
-      unit: '', period_start: '', period_end: '', status: 'active', notes: '', created_by: '',
+      unit: '', period_start: '', period_end: '', status: 'active', notes: '',
+      created_by: !isAdmin && currentUser ? currentUser.id : '',
     });
     setShowModal(true);
   };
@@ -509,7 +512,8 @@ export default function KpiContent() {
                   <select
                     value={form.created_by}
                     onChange={(e) => setForm({ ...form, created_by: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    disabled={!isAdmin}
+                    className={`w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     <option value="">선택 안함</option>
                     {members.map((m) => (

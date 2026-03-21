@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { noticesService } from '../services/noticesService';
 import RichEditor from '../components/RichEditor';
+import { useAuth } from '../context/AuthContext';
 
 export default function Notices() {
+  const { currentUser, isAdmin } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [notices, setNotices] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -85,6 +87,7 @@ export default function Notices() {
         title: formTitle.trim(),
         content: formContent,
         is_pinned: formPinned,
+        ...(editingId ? {} : { author_name: currentUser?.name || '' }),
       };
 
       if (editingId) {
@@ -192,22 +195,24 @@ export default function Notices() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleEdit(selectedNotice)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-300 bg-surface-700 hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  수정
-                </button>
-                <button
-                  onClick={() => handleDelete(selectedNotice.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  삭제
-                </button>
-              </div>
+              {(isAdmin || selectedNotice.author_name === currentUser?.name) && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => handleEdit(selectedNotice)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-300 bg-surface-700 hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    수정
+                  </button>
+                  <button
+                    onClick={() => handleDelete(selectedNotice.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    삭제
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           <div
@@ -367,44 +372,50 @@ export default function Notices() {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleTogglePin(notice)}
-                    title={notice.is_pinned ? '고정 해제' : '상단 고정'}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      notice.is_pinned
-                        ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
-                        : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
-                    }`}
-                  >
-                    <Pin className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleToggleActive(notice)}
-                    title={notice.is_active ? '비공개로 전환' : '공개로 전환'}
-                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                      notice.is_active
-                        ? 'text-green-400 hover:bg-white/5'
-                        : 'text-gray-500 hover:bg-white/5'
-                    }`}
-                  >
-                    {notice.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleEdit(notice)}
-                    title="수정"
-                    className="p-1.5 rounded-lg text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-colors cursor-pointer"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(notice.id)}
-                    title="삭제"
-                    className="p-1.5 rounded-lg text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {(isAdmin || notice.author_name === currentUser?.name) && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => handleTogglePin(notice)}
+                          title={notice.is_pinned ? '고정 해제' : '상단 고정'}
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                            notice.is_pinned
+                              ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
+                              : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
+                          }`}
+                        >
+                          <Pin className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleActive(notice)}
+                          title={notice.is_active ? '비공개로 전환' : '공개로 전환'}
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                            notice.is_active
+                              ? 'text-green-400 hover:bg-white/5'
+                              : 'text-gray-500 hover:bg-white/5'
+                          }`}
+                        >
+                          {notice.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => handleEdit(notice)}
+                      title="수정"
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-white/5 hover:text-gray-300 transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(notice.id)}
+                      title="삭제"
+                      className="p-1.5 rounded-lg text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

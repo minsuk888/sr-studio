@@ -25,12 +25,12 @@ const navItems = [
   { to: '/kpi', icon: Target, label: 'KPI 관리' },
   { to: '/trends', icon: TrendingUp, label: '모터스포츠 트렌드' },
   { to: '/meetings', icon: FileText, label: '회의록' },
-  { to: '/settings', icon: Settings, label: '관리자 설정' },
+  { to: '/settings', icon: Settings, label: '관리자 설정', settingsItem: true },
 ];
 
 export default function Sidebar({ isOpen, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { logout } = useAuth();
+  const { currentUser, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -41,6 +41,13 @@ export default function Sidebar({ isOpen, onClose }) {
   const handleNavClick = () => {
     // Close sidebar on mobile after navigation
     if (onClose) onClose();
+  };
+
+  const getNavLabel = (item) => {
+    if (item.settingsItem) {
+      return isAdmin ? '관리자 설정' : '내 설정';
+    }
+    return item.label;
   };
 
   return (
@@ -78,28 +85,48 @@ export default function Sidebar({ isOpen, onClose }) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            onClick={handleNavClick}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? 'bg-brand-500/15 text-brand-400 border-l-2 border-brand-500 ml-0 pl-2.5'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border-l-2 border-transparent'
-              }`
-            }
-          >
-            <Icon className="w-5 h-5 shrink-0" />
-            {!collapsed && <span className="whitespace-nowrap">{label}</span>}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const { to, icon: Icon } = item;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  isActive
+                    ? 'bg-brand-500/15 text-brand-400 border-l-2 border-brand-500 ml-0 pl-2.5'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200 border-l-2 border-transparent'
+                }`
+              }
+            >
+              <Icon className="w-5 h-5 shrink-0" />
+              {!collapsed && <span className="whitespace-nowrap">{getNavLabel(item)}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
-      {/* Bottom: Logout + Collapse */}
+      {/* Bottom: User info + Logout + Collapse */}
       <div className="border-t border-white/10">
+        {/* User info card */}
+        {currentUser && !collapsed && (
+          <div className="mx-3 my-3 px-3 py-2.5 bg-surface-700/50 rounded-lg">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg shrink-0">{currentUser.avatar || '👤'}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
+                <p className="text-xs text-gray-400 truncate">{currentUser.role}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {currentUser && collapsed && (
+          <div className="flex items-center justify-center py-3">
+            <span className="text-lg" title={currentUser.name}>{currentUser.avatar || '👤'}</span>
+          </div>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-6 py-3 text-sm text-gray-400 hover:text-brand-400 hover:bg-white/5 transition-colors cursor-pointer bg-transparent"

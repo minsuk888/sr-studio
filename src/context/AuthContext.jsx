@@ -3,40 +3,49 @@ import { Navigate, Outlet } from 'react-router-dom';
 
 const AuthContext = createContext();
 
-const AUTH_KEY = 'sr-studio-auth';
+const USER_KEY = 'sr-studio-user';
 
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem(AUTH_KEY) === 'true';
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem(USER_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
   });
   const [loading, setLoading] = useState(false);
 
   // 세션 복원 확인
   useEffect(() => {
-    const stored = sessionStorage.getItem(AUTH_KEY);
-    if (stored === 'true') {
-      setIsAuthenticated(true);
+    try {
+      const stored = sessionStorage.getItem(USER_KEY);
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      }
+    } catch {
+      sessionStorage.removeItem(USER_KEY);
     }
   }, []);
 
-  const login = useCallback(async (password) => {
+  const login = useCallback(async (username, password) => {
     setLoading(true);
     try {
-      // 서버사이드 인증 (비밀번호 해싱 + RLS 보호)
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'login', password }),
+        body: JSON.stringify({ action: 'login', username, password }),
       });
 
       const data = await res.json();
 
       if (data.success) {
-        sessionStorage.setItem(AUTH_KEY, 'true');
-        setIsAuthenticated(true);
-        return { success: true };
+        const user = data.user;
+        sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+        setCurrentUser(user);
+        return { success: true, user };
       } else {
-        return { success: false, error: data.error || '비밀번호가 일치하지 않습니다.' };
+        return { success: false, error: data.error || '이름 또는 비밀번호가 일치하지 않습니다.' };
       }
     } catch (err) {
       return { success: false, error: '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.' };
@@ -46,16 +55,20 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    sessionStorage.removeItem(AUTH_KEY);
-    setIsAuthenticated(false);
+    sessionStorage.removeItem(USER_KEY);
+    setCurrentUser(null);
   }, []);
 
-  const changePassword = useCallback(async (currentPw, newPw) => {
-    // 서버사이드 비밀번호 변경 (해시 처리)
+  const changePassword = useCallback(async (memberId, currentPw, newPw) => {
     const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'change-password', currentPassword: currentPw, newPassword: newPw }),
+      body: JSON.stringify({
+        action: 'change-password',
+        memberId,
+        currentPassword: currentPw,
+        newPassword: newPw,
+      }),
     });
 
     const data = await res.json();
@@ -67,8 +80,11 @@ export function AuthProvider({ children }) {
     return true;
   }, []);
 
+  const isAuthenticated = currentUser !== null;
+  const isAdmin = currentUser?.is_admin === true;
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, loading, login, logout, changePassword }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, isAdmin, loading, login, logout, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

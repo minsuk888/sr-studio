@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import TaskChecklist from './TaskChecklist';
+import { useAuth } from '../../context/AuthContext';
 
 const emptyForm = {
   title: '',
@@ -16,6 +17,7 @@ const emptyForm = {
 const quickProgress = [0, 25, 50, 75, 100];
 
 export default function TaskModal({ isOpen, editingTask, members, onSave, onClose }) {
+  const { currentUser, isAdmin } = useAuth();
   const [formData, setFormData] = useState(emptyForm);
   const [useChecklist, setUseChecklist] = useState(false);
 
@@ -35,10 +37,13 @@ export default function TaskModal({ isOpen, editingTask, members, onSave, onClos
       });
       setUseChecklist(checklist.length > 0);
     } else {
-      setFormData(emptyForm);
+      setFormData(!isAdmin && currentUser
+        ? { ...emptyForm, assignee: currentUser.id }
+        : emptyForm
+      );
       setUseChecklist(false);
     }
-  }, [isOpen, editingTask]);
+  }, [isOpen, editingTask, isAdmin, currentUser]);
 
   // Phase 6: bidirectional progress-status sync
   const updateField = useCallback((field, value) => {
@@ -117,7 +122,8 @@ export default function TaskModal({ isOpen, editingTask, members, onSave, onClos
               <select
                 value={formData.assignee}
                 onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition"
+                disabled={!isAdmin}
+                className={`w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-700 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 <option value="">선택하세요</option>
                 {members.map((m) => (
