@@ -104,7 +104,27 @@ async function handleChangePassword(req, res) {
     const admin = getAdminClient();
 
     if (isAdminAction) {
-      // 관리자 비밀번호 재설정: 현재 비밀번호 검증 생략
+      // 관리자 비밀번호 재설정: 관리자 본인 인증 필수
+      const { requestingMemberId, adminPassword } = req.body || {};
+
+      if (!requestingMemberId || !adminPassword) {
+        return res.status(400).json({ error: '관리자 인증이 필요합니다.' });
+      }
+
+      const { data: requester, error: reqErr } = await admin
+        .from('members')
+        .select('id, is_admin, password_hash')
+        .eq('id', requestingMemberId)
+        .single();
+
+      if (reqErr || !requester || !requester.is_admin) {
+        return res.status(403).json({ error: '관리자 권한이 없습니다.' });
+      }
+
+      if (!requester.password_hash || !verifyPassword(adminPassword, requester.password_hash)) {
+        return res.status(401).json({ error: '관리자 비밀번호가 일치하지 않습니다.' });
+      }
+
       const { error: updateError } = await admin
         .from('members')
         .update({ password_hash: hashPassword(newPassword) })

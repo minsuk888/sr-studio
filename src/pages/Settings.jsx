@@ -45,12 +45,20 @@ function formatDate(iso) {
 
 function ResetPasswordModal({ member, onConfirm, onClose }) {
   const [resetting, setResetting] = useState(false);
+  const [adminPw, setAdminPw] = useState('');
+  const [error, setError] = useState('');
 
   const handleConfirm = async () => {
+    if (!adminPw.trim()) {
+      setError('관리자 비밀번호를 입력해주세요.');
+      return;
+    }
+    setError('');
     setResetting(true);
     try {
-      await onConfirm(member);
-    } finally {
+      await onConfirm(member, adminPw);
+    } catch (err) {
+      setError(err.message);
       setResetting(false);
     }
   };
@@ -83,10 +91,27 @@ function ResetPasswordModal({ member, onConfirm, onClose }) {
           </div>
         </div>
 
-        <p className="text-sm text-gray-400 mb-5">
+        <p className="text-sm text-gray-400 mb-4">
           이 팀원의 비밀번호를 <span className="text-amber-400 font-semibold">7889</span>로 초기화합니다.
-          이 작업은 되돌릴 수 없습니다.
         </p>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-400 mb-1.5">관리자 비밀번호 확인</label>
+          <input
+            type="password"
+            value={adminPw}
+            onChange={(e) => setAdminPw(e.target.value)}
+            placeholder="본인 비밀번호 입력"
+            className="w-full px-3 py-2.5 border border-surface-700 bg-surface-900 text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50"
+          />
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <button
@@ -98,7 +123,7 @@ function ResetPasswordModal({ member, onConfirm, onClose }) {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={resetting}
+            disabled={resetting || !adminPw.trim()}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/20 transition-colors disabled:opacity-50"
           >
             {resetting ? (
@@ -208,35 +233,29 @@ export default function Settings() {
     }
   };
 
-  const handleResetPassword = async (member) => {
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'change-password',
-          memberId: member.id,
-          newPassword: '7889',
-          isAdminAction: true,
-        }),
-      });
+  const handleResetPassword = async (member, adminPassword) => {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'change-password',
+        memberId: member.id,
+        newPassword: '7889',
+        isAdminAction: true,
+        requestingMemberId: currentUser.id,
+        adminPassword,
+      }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
-      }
-
-      setResetMessage({ type: 'success', memberId: member.id, text: '비밀번호가 7889로 초기화되었습니다' });
-      setResetTarget(null);
-
-      setTimeout(() => setResetMessage(null), 4000);
-    } catch (err) {
-      setResetMessage({ type: 'error', memberId: member.id, text: err.message });
-      setResetTarget(null);
-
-      setTimeout(() => setResetMessage(null), 4000);
+    if (!res.ok) {
+      throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
     }
+
+    setResetMessage({ type: 'success', memberId: member.id, text: '비밀번호가 7889로 초기화되었습니다' });
+    setResetTarget(null);
+    setTimeout(() => setResetMessage(null), 4000);
   };
 
   const totalTasks = tasks.length;

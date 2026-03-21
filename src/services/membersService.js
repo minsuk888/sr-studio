@@ -4,7 +4,7 @@ export const membersService = {
   async getAll() {
     const { data, error } = await supabase
       .from('members')
-      .select('*')
+      .select('id, name, role, avatar, email, created_at, is_admin')
       .order('id');
     if (error) throw error;
     return data;
