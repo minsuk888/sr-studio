@@ -20,6 +20,8 @@ import { ticketService } from '../services/ticketService';
 import { aiService } from '../services/aiService';
 import { noticesService } from '../services/noticesService';
 import AiInsightCard from '../components/AiInsightCard';
+import TicketSalesMini from '../components/dashboard/TicketSalesMini';
+import KpiSummaryPanel from '../components/dashboard/KpiSummaryPanel';
 import { getDeadlineStatus } from '../utils/deadlineStatus';
 
 // ---------------------------------------------------------------------------
@@ -403,61 +405,11 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* LEFT COLUMN: KPI + 담당자별 업무 */}
         <div className="lg:col-span-3 flex flex-col gap-4">
-          {/* KPI 목표 달성 현황 */}
-          <div className="bg-surface-800 rounded-xl shadow-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-300 flex items-center gap-2">
-                <Target className="w-4.5 h-4.5 text-brand-500" />
-                KPI 달성 현황
-              </h2>
-              <span className="text-xs text-gray-500">{kpiItems.length}개 항목</span>
-            </div>
+          {/* 라운드별 티켓 판매 */}
+          <TicketSalesMini />
 
-            {kpiItems.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">등록된 KPI가 없습니다</p>
-            ) : (
-              <div className="space-y-2.5">
-                {kpiItems.map((kpi) => {
-                  const pct = kpi.target_value > 0
-                    ? Math.round((kpi.current_value / kpi.target_value) * 100)
-                    : 0;
-                  const cat = kpiCategoryConfig[kpi.category] || kpiCategoryConfig.content;
-                  const st = kpiStatusConfig[kpi.status] || kpiStatusConfig.on_track;
-                  return (
-                    <div key={kpi.id} className="flex items-center gap-3 p-3 rounded-lg bg-surface-750 hover:bg-white/5 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${cat.bg} ${cat.color}`}>
-                            {cat.label}
-                          </span>
-                          <p className="text-sm font-medium text-gray-300 truncate">{kpi.title}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1">
-                            <ProgressBar value={Math.min(pct, 100)} />
-                          </div>
-                          <span className="text-xs font-semibold text-gray-400 w-9 text-right">{pct}%</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-gray-500">
-                            {kpi.current_value?.toLocaleString()}{kpi.unit} / {kpi.target_value?.toLocaleString()}{kpi.unit}
-                          </span>
-                          {kpi.period_end && (
-                            <span className="text-[10px] text-gray-600">
-                              ~{kpi.period_end.slice(5)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${st.bg} ${st.color}`}>
-                        {st.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          {/* KPI 달성 현황 (아코디언) */}
+          <KpiSummaryPanel kpiItems={kpiItems} />
 
           {/* 담당자별 업무 현황 (간소화) */}
           <div className="bg-surface-800 rounded-xl shadow-sm p-5">
