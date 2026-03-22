@@ -8,6 +8,7 @@ import {
   FileText,
   Settings,
   Megaphone,
+  ShoppingBag,
   Flag,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ const navItems = [
   { to: '/kpi', icon: Target, label: 'KPI 관리' },
   { to: '/trends', icon: TrendingUp, label: '모터스포츠 트렌드' },
   { to: '/meetings', icon: FileText, label: '회의록' },
+  { to: '/md', icon: ShoppingBag, label: 'MD 관리', adminOnly: true },
   { to: '/settings', icon: Settings, label: '관리자 설정', settingsItem: true },
 ];
 
@@ -85,7 +87,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {navItems.filter((item) => !item.adminOnly || isAdmin).map((item) => {
           const { to, icon: Icon } = item;
           return (
             <NavLink

@@ -14,6 +14,7 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { newsService } from '../services/newsService';
 import { kpiService } from '../services/kpiService';
 import { ticketService } from '../services/ticketService';
@@ -22,6 +23,7 @@ import { noticesService } from '../services/noticesService';
 import AiInsightCard from '../components/AiInsightCard';
 import TicketSalesMini from '../components/dashboard/TicketSalesMini';
 import KpiSummaryPanel from '../components/dashboard/KpiSummaryPanel';
+import MdSummaryMini from '../components/dashboard/MdSummaryMini';
 import { getDeadlineStatus } from '../utils/deadlineStatus';
 
 // ---------------------------------------------------------------------------
@@ -200,6 +202,7 @@ function MiniCalendar({ month, setMonth, events, tasks }) {
 
 export default function Dashboard() {
   const { tasks, members, calendarEvents, loading } = useApp();
+  const { isAdmin } = useAuth();
 
   const [newsArticles, setNewsArticles] = useState([]);
   const [kpiItems, setKpiItems] = useState([]);
@@ -410,6 +413,9 @@ export default function Dashboard() {
 
           {/* KPI 달성 현황 (아코디언) */}
           <KpiSummaryPanel kpiItems={kpiItems} />
+
+          {/* MD 재고 요약 (관리자만) */}
+          {isAdmin && <MdSummaryMini />}
 
           {/* 담당자별 업무 현황 (간소화) */}
           <div className="bg-surface-800 rounded-xl shadow-sm p-5">

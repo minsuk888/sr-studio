@@ -11,6 +11,7 @@ import Trends from './pages/Trends';
 import Meetings from './pages/Meetings';
 import Settings from './pages/Settings';
 import Notices from './pages/Notices';
+import MdInventory from './pages/MdInventory';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
             <Route path="/kpi" element={<KPI />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/meetings" element={<Meetings />} />
+            <Route path="/md" element={<MdInventory />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
