@@ -6,9 +6,10 @@ const emptyForm = {
   category_id: '',
   description: '',
   image_url: '',
-  cost_price: '',
-  sale_price: '',
+  production_cost: '',
+  selling_price: '',
   initial_stock: '',
+  initial_jaso: '',
 };
 
 export default function MdItemModal({ isOpen, onClose, onSave, editItem, categories }) {
@@ -22,9 +23,10 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
         category_id: editItem.category_id || '',
         description: editItem.description || '',
         image_url: editItem.image_url || '',
-        cost_price: editItem.cost_price ?? '',
-        sale_price: editItem.sale_price ?? '',
+        production_cost: editItem.production_cost ?? '',
+        selling_price: editItem.selling_price ?? '',
         initial_stock: '',
+        initial_jaso: '',
       });
     } else {
       setFormData(emptyForm);
@@ -43,18 +45,25 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
       category_id: formData.category_id || null,
       description: formData.description.trim() || null,
       image_url: formData.image_url.trim() || null,
-      cost_price: formData.cost_price !== '' ? Number(formData.cost_price) : null,
-      sale_price: formData.sale_price !== '' ? Number(formData.sale_price) : null,
+      production_cost: formData.production_cost !== '' ? Number(formData.production_cost) : 0,
+      selling_price: formData.selling_price !== '' ? Number(formData.selling_price) : 0,
     };
 
     if (!editItem) {
       payload.initial_stock = formData.initial_stock !== '' ? Number(formData.initial_stock) : 0;
+      payload.initial_jaso = formData.initial_jaso !== '' ? Number(formData.initial_jaso) : 0;
     }
 
     onSave(payload);
   };
 
   if (!isOpen) return null;
+
+  const totalQty =
+    (formData.initial_stock !== '' ? Number(formData.initial_stock) : 0) +
+    (formData.initial_jaso !== '' ? Number(formData.initial_jaso) : 0);
+  const unitCost = formData.production_cost !== '' ? Number(formData.production_cost) : 0;
+  const totalCost = totalQty * unitCost;
 
   const inputClass =
     'w-full px-3 py-2 rounded-lg border border-surface-700 text-sm text-white bg-surface-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition';
@@ -141,12 +150,12 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
           {/* 생산가 / 판매가 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">생산가 (원)</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1">제작 단가 (원)</label>
               <input
                 type="number"
                 min="0"
-                value={formData.cost_price}
-                onChange={(e) => updateField('cost_price', e.target.value)}
+                value={formData.production_cost}
+                onChange={(e) => updateField('production_cost', e.target.value)}
                 placeholder="0"
                 className={inputClass}
               />
@@ -156,26 +165,58 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
               <input
                 type="number"
                 min="0"
-                value={formData.sale_price}
-                onChange={(e) => updateField('sale_price', e.target.value)}
+                value={formData.selling_price}
+                onChange={(e) => updateField('selling_price', e.target.value)}
                 placeholder="0"
                 className={inputClass}
               />
             </div>
           </div>
 
-          {/* 초기재고 — 신규 생성 시에만 표시 */}
+          {/* 초기수량: 재고 / 자소 — 신규 생성 시에만 */}
           {!editItem && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">초기재고</label>
-              <input
-                type="number"
-                min="0"
-                value={formData.initial_stock}
-                onChange={(e) => updateField('initial_stock', e.target.value)}
-                placeholder="0"
-                className={inputClass}
-              />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-300">초기 수량</label>
+                <span className="text-xs text-gray-500">(제작 단가는 동일 적용)</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">판매용 재고</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.initial_stock}
+                    onChange={(e) => updateField('initial_stock', e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">자소(증정)용</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.initial_jaso}
+                    onChange={(e) => updateField('initial_jaso', e.target.value)}
+                    placeholder="0"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              {/* 합계 표시 */}
+              {totalQty > 0 && (
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-750 text-xs">
+                  <span className="text-gray-400">
+                    총 제작수량 <span className="text-white font-semibold">{totalQty.toLocaleString('ko-KR')}개</span>
+                  </span>
+                  {unitCost > 0 && (
+                    <span className="text-gray-400">
+                      총 제작비 <span className="text-white font-semibold">{totalCost.toLocaleString('ko-KR')}원</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Package, Boxes, AlertTriangle, XCircle, Loader } from 'lucide-react';
+import { Package, Boxes, AlertTriangle, XCircle, Loader, Gift } from 'lucide-react';
 import { mdService } from '../../services/mdService';
 import MdCategoryBadge from './MdCategoryBadge';
 
@@ -126,7 +126,8 @@ export default function MdStockTab() {
     const lowStock = activeItems.filter((s) => s.current_stock > 0 && s.current_stock <= 5).length;
     const outOfStock = activeItems.filter((s) => s.current_stock <= 0).length;
     const totalQuantity = activeItems.reduce((acc, s) => acc + (s.current_stock || 0), 0);
-    return { totalItems, lowStock, outOfStock, totalQuantity };
+    const totalJaso = activeItems.reduce((acc, s) => acc + (s.current_jaso || 0), 0);
+    return { totalItems, lowStock, outOfStock, totalQuantity, totalJaso };
   }, [activeItems]);
 
   // category map for badge rendering
@@ -175,7 +176,7 @@ export default function MdStockTab() {
   return (
     <div className="space-y-6">
       {/* ── 1. Summary cards ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
           icon={Package}
           label="총 품목 수"
@@ -191,11 +192,18 @@ export default function MdStockTab() {
           iconColor="text-blue-400"
         />
         <SummaryCard
+          icon={Gift}
+          label="총 자소 잔여"
+          value={summaryStats.totalJaso.toLocaleString('ko-KR')}
+          iconBg="bg-yellow-500/15"
+          iconColor="text-yellow-400"
+        />
+        <SummaryCard
           icon={AlertTriangle}
           label="재고 부족"
           value={summaryStats.lowStock}
-          iconBg="bg-yellow-500/15"
-          iconColor="text-yellow-400"
+          iconBg="bg-amber-500/15"
+          iconColor="text-amber-400"
         />
         <SummaryCard
           icon={XCircle}
@@ -264,20 +272,26 @@ export default function MdStockTab() {
                   판매
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
-                  자소
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
                   현재재고
                 </th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
                   상태
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums border-l border-surface-700">
+                  초기자소
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums">
+                  사용
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums">
+                  자소잔여
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700/50">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-500 text-sm">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500 text-sm">
                     해당하는 품목이 없습니다.
                   </td>
                 </tr>
@@ -312,14 +326,22 @@ export default function MdStockTab() {
                       <td className="px-4 py-3 text-right text-green-400 tabular-nums">
                         {(item.total_sold ?? 0).toLocaleString('ko-KR')}
                       </td>
-                      <td className="px-4 py-3 text-right text-yellow-400 tabular-nums">
-                        {(item.total_jaso ?? 0).toLocaleString('ko-KR')}
-                      </td>
                       <td className={`px-4 py-3 text-right font-bold tabular-nums ${stockColor}`}>
                         {(item.current_stock ?? 0).toLocaleString('ko-KR')}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <StockStatusDot level={level} />
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-400 tabular-nums border-l border-surface-700/50">
+                        {(item.initial_jaso ?? 0).toLocaleString('ko-KR')}
+                      </td>
+                      <td className="px-4 py-3 text-right text-yellow-400 tabular-nums">
+                        {(item.total_jaso ?? 0).toLocaleString('ko-KR')}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-bold tabular-nums ${
+                        (item.current_jaso ?? 0) <= 0 ? 'text-red-400' : 'text-yellow-400'
+                      }`}>
+                        {(item.current_jaso ?? 0).toLocaleString('ko-KR')}
                       </td>
                     </tr>
                   );

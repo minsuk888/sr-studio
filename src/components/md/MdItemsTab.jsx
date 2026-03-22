@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Package, Plus, Pencil, Search, Loader, Eye, EyeOff, ShoppingBag } from 'lucide-react';
+import { Package, Plus, Pencil, Search, Loader, Eye, EyeOff, ShoppingBag, Settings2 } from 'lucide-react';
 import { mdService } from '../../services/mdService';
 import MdCategoryBadge from './MdCategoryBadge';
 import MdStockBadge from './MdStockBadge';
 import MdItemModal from './MdItemModal';
+import MdCategoryModal from './MdCategoryModal';
 
 const formatWon = (value) => {
   if (value == null || value === '') return '—';
@@ -11,10 +12,13 @@ const formatWon = (value) => {
 };
 
 const mergeStock = (items, stockSummary) => {
-  const stockMap = Object.fromEntries((stockSummary || []).map((s) => [s.item_id, s.current_stock]));
+  const stockMap = Object.fromEntries(
+    (stockSummary || []).map((s) => [s.item_id, { current_stock: s.current_stock, current_jaso: s.current_jaso }]),
+  );
   return items.map((item) => ({
     ...item,
-    current_stock: stockMap[item.id] ?? 0,
+    current_stock: stockMap[item.id]?.current_stock ?? 0,
+    current_jaso: stockMap[item.id]?.current_jaso ?? 0,
   }));
 };
 
@@ -30,6 +34,7 @@ export default function MdItemsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [toggling, setToggling] = useState(null);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -78,21 +83,10 @@ export default function MdItemsTab() {
   const handleSave = async (formData) => {
     try {
       if (editItem) {
-        const { initial_stock: _removed, ...updates } = formData;
+        const { initial_stock: _s, initial_jaso: _j, ...updates } = formData;
         await mdService.updateItem(editItem.id, updates);
       } else {
-        const { initial_stock, ...itemData } = formData;
-        const created = await mdService.createItem({ ...itemData, is_active: true });
-        if (initial_stock > 0) {
-          await mdService.createLog({
-            item_id: created.id,
-            log_type: 'in',
-            quantity: initial_stock,
-            unit_price: itemData.cost_price || 0,
-            log_date: new Date().toISOString().slice(0, 10),
-            note: '초기재고',
-          });
-        }
+        await mdService.createItem({ ...formData, is_active: true });
       }
       handleCloseModal();
       await loadData();
@@ -110,6 +104,15 @@ export default function MdItemsTab() {
       setError('상태 변경에 실패했습니다.');
     } finally {
       setToggling(null);
+    }
+  };
+
+  const handleCategoryUpdate = async () => {
+    try {
+      const cats = await mdService.getCategories();
+      setCategories(cats || []);
+    } catch (err) {
+      setError('카테고리 갱신에 실패했습니다.');
     }
   };
 
@@ -137,13 +140,22 @@ export default function MdItemsTab() {
           />
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          새 품목
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCategoryModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-700 text-gray-400 hover:text-white hover:border-surface-600 text-sm font-medium transition-colors cursor-pointer"
+          >
+            <Settings2 className="w-4 h-4" />
+            카테고리
+          </button>
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            새 품목
+          </button>
+        </div>
       </div>
 
       {/* Category filter tabs */}
@@ -213,8 +225,8 @@ export default function MdItemsTab() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((item) => {
             const margin =
-              item.sale_price != null && item.cost_price != null
-                ? item.sale_price - item.cost_price
+              item.selling_price != null && item.production_cost != null
+                ? item.selling_price - item.production_cost
                 : null;
             const isInactive = !item.is_active;
 
@@ -261,12 +273,12 @@ export default function MdItemsTab() {
                   {/* Pricing info */}
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                     <div>
-                      <span className="text-gray-500">생산가</span>
-                      <p className="text-gray-300 font-medium">{formatWon(item.cost_price)}</p>
+                      <span className="text-gray-500">제작 단가</span>
+                      <p className="text-gray-300 font-medium">{formatWon(item.production_cost)}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">판매가</span>
-                      <p className="text-gray-300 font-medium">{formatWon(item.sale_price)}</p>
+                      <p className="text-gray-300 font-medium">{formatWon(item.selling_price)}</p>
                     </div>
                     <div>
                       <span className="text-gray-500">재고</span>
@@ -275,6 +287,12 @@ export default function MdItemsTab() {
                       </p>
                     </div>
                     <div>
+                      <span className="text-gray-500">자소</span>
+                      <p className="text-yellow-400 font-medium">
+                        {item.current_jaso != null ? `${item.current_jaso}개` : '—'}
+                      </p>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-surface-700/50">
                       <span className="text-gray-500">마진</span>
                       <p
                         className={`font-medium ${
@@ -321,13 +339,19 @@ export default function MdItemsTab() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modals */}
       <MdItemModal
         isOpen={modalOpen}
         onClose={handleCloseModal}
         onSave={handleSave}
         editItem={editItem}
         categories={categories}
+      />
+      <MdCategoryModal
+        isOpen={categoryModalOpen}
+        onClose={() => setCategoryModalOpen(false)}
+        categories={categories}
+        onUpdate={handleCategoryUpdate}
       />
     </div>
   );

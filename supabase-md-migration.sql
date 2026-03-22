@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS md_items (
   production_cost INT DEFAULT 0,
   selling_price   INT DEFAULT 0,
   initial_stock   INT DEFAULT 0,
+  initial_jaso    INT DEFAULT 0,
   is_active       BOOLEAN DEFAULT true,
   created_by      TEXT,
   created_at      TIMESTAMPTZ DEFAULT now(),
@@ -59,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_md_stock_logs_item ON md_stock_logs(item_id);
 CREATE INDEX IF NOT EXISTS idx_md_stock_logs_type ON md_stock_logs(log_type);
 CREATE INDEX IF NOT EXISTS idx_md_stock_logs_date ON md_stock_logs(log_date);
 
--- 4. 재고 요약 뷰
+-- 4. 재고 요약 뷰 (재고/자소 분리 계산)
 CREATE OR REPLACE VIEW md_stock_summary AS
 SELECT
   i.id AS item_id,
@@ -68,6 +69,7 @@ SELECT
   i.production_cost,
   i.selling_price,
   i.initial_stock,
+  i.initial_jaso,
   i.is_active,
   i.image_url,
   COALESCE(SUM(CASE WHEN l.log_type = 'inbound' THEN l.quantity ELSE 0 END), 0)::INT AS total_inbound,
@@ -76,8 +78,10 @@ SELECT
   (i.initial_stock
     + COALESCE(SUM(CASE WHEN l.log_type = 'inbound' THEN l.quantity ELSE 0 END), 0)
     - COALESCE(SUM(CASE WHEN l.log_type = 'sale' THEN l.quantity ELSE 0 END), 0)
-    - COALESCE(SUM(CASE WHEN l.log_type = 'jaso' THEN l.quantity ELSE 0 END), 0)
   )::INT AS current_stock,
+  (i.initial_jaso
+    - COALESCE(SUM(CASE WHEN l.log_type = 'jaso' THEN l.quantity ELSE 0 END), 0)
+  )::INT AS current_jaso,
   COALESCE(SUM(CASE WHEN l.log_type = 'sale' THEN l.quantity * l.unit_price ELSE 0 END), 0)::INT AS total_revenue,
   (COALESCE(SUM(CASE WHEN l.log_type = 'sale' THEN l.quantity ELSE 0 END), 0) * i.production_cost)::INT AS total_cost,
   (COALESCE(SUM(CASE WHEN l.log_type = 'sale' THEN l.quantity * l.unit_price ELSE 0 END), 0)
@@ -85,7 +89,7 @@ SELECT
   )::INT AS total_profit
 FROM md_items i
 LEFT JOIN md_stock_logs l ON l.item_id = i.id
-GROUP BY i.id, i.name, i.category_id, i.production_cost, i.selling_price, i.initial_stock, i.is_active, i.image_url;
+GROUP BY i.id, i.name, i.category_id, i.production_cost, i.selling_price, i.initial_stock, i.initial_jaso, i.is_active, i.image_url;
 
 -- 5. RLS 정책
 ALTER TABLE md_categories ENABLE ROW LEVEL SECURITY;
