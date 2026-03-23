@@ -1,11 +1,75 @@
-import { Pencil, Eye, EyeOff, Loader, ShoppingBag } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Pencil, Eye, EyeOff, Loader, ShoppingBag, ChevronUp, ChevronDown } from 'lucide-react';
 
 const formatWon = (value) => {
   if (value == null || value === '') return '—';
   return Number(value).toLocaleString('ko-KR') + '원';
 };
 
+const getMargin = (item) =>
+  item.selling_price != null && item.production_cost != null
+    ? item.selling_price - item.production_cost
+    : null;
+
+const SORT_COLUMNS = {
+  name: { getValue: (item) => item.name?.toLowerCase() ?? '', type: 'string' },
+  production_cost: { getValue: (item) => item.production_cost ?? 0, type: 'number' },
+  selling_price: { getValue: (item) => item.selling_price ?? 0, type: 'number' },
+  margin: { getValue: (item) => getMargin(item) ?? -Infinity, type: 'number' },
+  current_stock: { getValue: (item) => item.current_stock ?? 0, type: 'number' },
+  current_jaso: { getValue: (item) => item.current_jaso ?? 0, type: 'number' },
+};
+
+function SortIcon({ sortKey, sortConfig }) {
+  if (sortConfig.key !== sortKey) {
+    return <ChevronUp className="w-3 h-3 text-gray-600" />;
+  }
+  return sortConfig.direction === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-red-400" />
+    : <ChevronDown className="w-3 h-3 text-red-400" />;
+}
+
+function SortableHeader({ children, sortKey, sortConfig, onSort, className = '' }) {
+  return (
+    <th
+      className={`px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap select-none cursor-pointer hover:text-gray-200 transition-colors ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className={`flex items-center gap-0.5 ${className.includes('text-right') ? 'justify-end' : ''}`}>
+        {children}
+        <SortIcon sortKey={sortKey} sortConfig={sortConfig} />
+      </div>
+    </th>
+  );
+}
+
 export default function MdItemsListView({ items, onEdit, onToggleActive, toggling }) {
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return prev.direction === 'asc'
+          ? { key, direction: 'desc' }
+          : { key: null, direction: 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
+  const sortedItems = useMemo(() => {
+    if (!sortConfig.key) return items;
+    const col = SORT_COLUMNS[sortConfig.key];
+    if (!col) return items;
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const va = col.getValue(a);
+      const vb = col.getValue(b);
+      if (col.type === 'string') return va < vb ? -dir : va > vb ? dir : 0;
+      return (va - vb) * dir;
+    });
+  }, [items, sortConfig]);
+
   return (
     <div className="bg-surface-800 rounded-xl border border-surface-700 overflow-hidden">
       <div className="overflow-x-auto">
@@ -13,27 +77,27 @@ export default function MdItemsListView({ items, onEdit, onToggleActive, togglin
           <thead>
             <tr className="bg-surface-700/30 border-b border-surface-700">
               <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap w-10" />
-              <th className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap">
+              <SortableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort} className="text-left">
                 품목명
-              </th>
+              </SortableHeader>
               <th className="text-center px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap">
                 브랜드
               </th>
-              <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+              <SortableHeader sortKey="production_cost" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                 제작단가
-              </th>
-              <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+              </SortableHeader>
+              <SortableHeader sortKey="selling_price" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                 판매가
-              </th>
-              <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+              </SortableHeader>
+              <SortableHeader sortKey="margin" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                 마진
-              </th>
-              <th className="text-right px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+              </SortableHeader>
+              <SortableHeader sortKey="current_stock" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                 재고
-              </th>
-              <th className="text-right px-3 py-2.5 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums">
+              </SortableHeader>
+              <SortableHeader sortKey="current_jaso" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                 자소
-              </th>
+              </SortableHeader>
               <th className="text-center px-3 py-2.5 text-xs font-medium text-gray-400 whitespace-nowrap">
                 상태
               </th>
@@ -43,18 +107,15 @@ export default function MdItemsListView({ items, onEdit, onToggleActive, togglin
             </tr>
           </thead>
           <tbody className="divide-y divide-surface-700/50">
-            {items.length === 0 ? (
+            {sortedItems.length === 0 ? (
               <tr>
                 <td colSpan={10} className="px-4 py-12 text-center text-gray-500 text-sm">
                   해당하는 품목이 없습니다.
                 </td>
               </tr>
             ) : (
-              items.map((item) => {
-                const margin =
-                  item.selling_price != null && item.production_cost != null
-                    ? item.selling_price - item.production_cost
-                    : null;
+              sortedItems.map((item) => {
+                const margin = getMargin(item);
                 const marginPct =
                   margin != null && item.selling_price > 0
                     ? Math.round((margin / item.selling_price) * 100)

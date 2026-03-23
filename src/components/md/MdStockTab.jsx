@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import { Package, Boxes, AlertTriangle, XCircle, Loader, Gift } from 'lucide-react';
+import { Package, Boxes, AlertTriangle, XCircle, Loader, Gift, ChevronUp, ChevronDown } from 'lucide-react';
 import { mdService } from '../../services/mdService';
 
 // ─── constants ───────────────────────────────────────────────────────────────
@@ -34,6 +34,15 @@ function getStockColor(level) {
   if (level === 'low') return '#f59e0b';
   return '#10b981';
 }
+
+const SORT_COLUMNS = {
+  name: { getValue: (item) => item.name?.toLowerCase() ?? '', type: 'string' },
+  initial_stock: { getValue: (item) => item.initial_stock ?? 0, type: 'number' },
+  total_inbound: { getValue: (item) => item.total_inbound ?? 0, type: 'number' },
+  total_sold: { getValue: (item) => item.total_sold ?? 0, type: 'number' },
+  current_stock: { getValue: (item) => item.current_stock ?? 0, type: 'number' },
+  current_jaso: { getValue: (item) => item.current_jaso ?? 0, type: 'number' },
+};
 
 // ─── sub-components ──────────────────────────────────────────────────────────
 
@@ -76,11 +85,35 @@ function StockStatusDot({ level }) {
   );
 }
 
+function SortIcon({ sortKey, sortConfig }) {
+  if (sortConfig.key !== sortKey) {
+    return <ChevronUp className="w-3 h-3 text-gray-600" />;
+  }
+  return sortConfig.direction === 'asc'
+    ? <ChevronUp className="w-3 h-3 text-red-400" />
+    : <ChevronDown className="w-3 h-3 text-red-400" />;
+}
+
+function SortableTh({ children, sortKey, sortConfig, onSort, className = '' }) {
+  return (
+    <th
+      className={`px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap select-none cursor-pointer hover:text-gray-200 transition-colors ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className={`flex items-center gap-0.5 ${className.includes('text-right') ? 'justify-end' : ''}`}>
+        {children}
+        <SortIcon sortKey={sortKey} sortConfig={sortConfig} />
+      </div>
+    </th>
+  );
+}
+
 // ─── main component ───────────────────────────────────────────────────────────
 
 export default function MdStockTab() {
   const [stockSummary, setStockSummary] = useState([]);
   const [selectedBrand, setSelectedBrand] = useState('all');
+  const [sortConfig, setSortConfig] = useState({ key: 'current_stock', direction: 'asc' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -124,17 +157,45 @@ export default function MdStockTab() {
     return { totalItems, lowStock, outOfStock, totalQuantity, totalJaso };
   }, [activeItems]);
 
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return prev.direction === 'asc'
+          ? { key, direction: 'desc' }
+          : { key: null, direction: 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
   // filtered + sorted rows
   const filteredItems = useMemo(() => {
     const base = selectedBrand !== 'all'
       ? activeItems.filter((s) => s.brand === selectedBrand)
       : activeItems;
-    return [...base].sort((a, b) => (a.current_stock ?? 0) - (b.current_stock ?? 0));
-  }, [activeItems, selectedBrand]);
 
-  // chart: top 10 by current_stock (sorted ascending = problems visible)
+    if (!sortConfig.key) {
+      return [...base].sort((a, b) => (a.current_stock ?? 0) - (b.current_stock ?? 0));
+    }
+
+    const col = SORT_COLUMNS[sortConfig.key];
+    if (!col) return base;
+    const dir = sortConfig.direction === 'asc' ? 1 : -1;
+    return [...base].sort((a, b) => {
+      const va = col.getValue(a);
+      const vb = col.getValue(b);
+      if (col.type === 'string') return va < vb ? -dir : va > vb ? dir : 0;
+      return (va - vb) * dir;
+    });
+  }, [activeItems, selectedBrand, sortConfig]);
+
+  // chart: top 10 by current_stock (always sorted ascending for chart)
   const chartData = useMemo(() => {
-    return [...filteredItems]
+    const base = selectedBrand !== 'all'
+      ? activeItems.filter((s) => s.brand === selectedBrand)
+      : activeItems;
+    return [...base]
+      .sort((a, b) => (a.current_stock ?? 0) - (b.current_stock ?? 0))
       .slice(0, 10)
       .map((item) => ({
         name: item.name.length > 8 ? `${item.name.slice(0, 8)}…` : item.name,
@@ -142,7 +203,7 @@ export default function MdStockTab() {
         stock: item.current_stock ?? 0,
         level: getStockLevel(item.current_stock ?? 0),
       }));
-  }, [filteredItems]);
+  }, [activeItems, selectedBrand]);
 
   // ── render ──
   if (loading) {
@@ -232,24 +293,24 @@ export default function MdStockTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-700/30 border-b border-surface-700">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
+                <SortableTh sortKey="name" sortConfig={sortConfig} onSort={handleSort} className="text-left">
                   품목
-                </th>
+                </SortableTh>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
                   브랜드
                 </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+                <SortableTh sortKey="initial_stock" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                   초기재고
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+                </SortableTh>
+                <SortableTh sortKey="total_inbound" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                   입고
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+                </SortableTh>
+                <SortableTh sortKey="total_sold" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                   판매
-                </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+                </SortableTh>
+                <SortableTh sortKey="current_stock" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
                   현재재고
-                </th>
+                </SortableTh>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
                   소진율
                 </th>
@@ -262,9 +323,9 @@ export default function MdStockTab() {
                 <th className="text-right px-4 py-3 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums">
                   사용
                 </th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-yellow-500/70 whitespace-nowrap tabular-nums">
-                  자소잔여
-                </th>
+                <SortableTh sortKey="current_jaso" sortConfig={sortConfig} onSort={handleSort} className="text-right tabular-nums">
+                  <span className="text-yellow-500/70">자소잔여</span>
+                </SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700/50">

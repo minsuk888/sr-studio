@@ -449,11 +449,11 @@ export default function MdEventsTab() {
         <ul className="space-y-2 text-xs text-gray-400">
           <li className="flex items-start gap-2">
             <span className="text-red-400 mt-0.5">*</span>
-            <span>R6 전남GT: 현장판매 제외</span>
+            <span>R6 전남GT: 현장판매 제외 → 온라인 판매 전환</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-blue-400 mt-0.5">*</span>
-            <span>온라인(네이버 스마트스토어): 시즌 전체 상시운영</span>
+            <span>온라인(네이버 스마트스토어): 시즌 전체 상시운영 (R6 포함)</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-yellow-400 mt-0.5">*</span>
