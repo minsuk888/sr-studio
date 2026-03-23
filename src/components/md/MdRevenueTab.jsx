@@ -26,6 +26,16 @@ const CHART_TOOLTIP_STYLE = {
   fontSize: '12px',
 };
 
+const CHANNEL_LABELS = {
+  offline: '현장 판매',
+  online: '온라인(스마트스토어)',
+};
+
+const CHANNEL_COLORS = {
+  offline: '#f59e0b',
+  online: '#3b82f6',
+};
+
 const JASO_PURPOSE_LABELS = {
   event: '이벤트',
   sponsor: '스폰서',
@@ -254,6 +264,40 @@ export default function MdRevenueTab() {
       }));
   }, [saleLogs]);
 
+  // ── channel revenue data ──
+  const channelRevenueData = useMemo(() => {
+    const byChannel = saleLogs.reduce((acc, log) => {
+      const channel = log.sale_channel || 'offline';
+      const amount = (log.quantity ?? 0) * (log.unit_price ?? 0);
+      return { ...acc, [channel]: (acc[channel] ?? 0) + amount };
+    }, {});
+
+    return Object.entries(byChannel)
+      .filter(([, v]) => v > 0)
+      .map(([channel, revenue]) => ({
+        name: CHANNEL_LABELS[channel] ?? channel,
+        value: revenue,
+        color: CHANNEL_COLORS[channel] ?? '#6b7280',
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [saleLogs]);
+
+  // ── PnL summary ──
+  const pnlSummary = useMemo(() => {
+    const totalRevenue = revenueSummary.totalRevenue;
+    const totalCost = revenueSummary.totalCost;
+    const grossProfit = totalRevenue - totalCost;
+    const grossMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+    const onlineRevenue = saleLogs
+      .filter((l) => l.sale_channel === 'online')
+      .reduce((acc, l) => acc + (l.quantity ?? 0) * (l.unit_price ?? 0), 0);
+    const offlineRevenue = totalRevenue - onlineRevenue;
+    const onlineRatio = totalRevenue > 0 ? (onlineRevenue / totalRevenue) * 100 : 0;
+
+    return { grossProfit, grossMargin, onlineRevenue, offlineRevenue, onlineRatio };
+  }, [revenueSummary, saleLogs]);
+
   // ── jaso by purpose ──
   const jasoPurposeData = useMemo(() => {
     const byPurpose = jasoLogs.reduce((acc, log) => {
@@ -475,7 +519,94 @@ export default function MdRevenueTab() {
         </div>
       </div>
 
-      {/* ── 5. Jaso analysis ─────────────────────────────────────────────── */}
+      {/* ── 5. Channel analysis + PnL ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Channel pie */}
+        <div className="bg-surface-800 rounded-xl border border-surface-700 p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">채널별 매출</h3>
+          {channelRevenueData.length === 0 ? (
+            <div className="flex items-center justify-center h-[220px] text-gray-500 text-sm">
+              데이터가 없습니다.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={channelRevenueData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="value"
+                  labelLine={false}
+                  label={renderPieLabel}
+                >
+                  {channelRevenueData.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={CHART_TOOLTIP_STYLE}
+                  formatter={(value, name) => [formatWon(value), name]}
+                />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: '11px', color: '#9ca3af' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* PnL summary */}
+        <div className="bg-surface-800 rounded-xl border border-surface-700 p-5">
+          <h3 className="text-sm font-semibold text-white mb-4">손익 요약 (PnL)</h3>
+          <div className="space-y-3">
+            {[
+              { label: '총 매출', value: formatWon(revenueSummary.totalRevenue), color: 'text-green-400' },
+              { label: '총 원가', value: formatWon(revenueSummary.totalCost), color: 'text-blue-400' },
+              { label: '매출이익', value: formatWon(pnlSummary.grossProfit), color: pnlSummary.grossProfit >= 0 ? 'text-green-400' : 'text-red-400' },
+              { label: '매출이익률', value: `${pnlSummary.grossMargin.toFixed(1)}%`, color: 'text-purple-400' },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-700/30">
+                <span className="text-sm text-gray-400">{row.label}</span>
+                <span className={`text-sm font-bold tabular-nums ${row.color}`}>{row.value}</span>
+              </div>
+            ))}
+            <div className="border-t border-surface-700 pt-3 mt-3">
+              <p className="text-xs text-gray-500 mb-2">채널 비중</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-yellow-400">현장</span>
+                    <span className="text-gray-400 tabular-nums">{formatWon(pnlSummary.offlineRevenue)}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-yellow-400"
+                      style={{ width: `${100 - pnlSummary.onlineRatio}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-blue-400">온라인</span>
+                    <span className="text-gray-400 tabular-nums">{formatWon(pnlSummary.onlineRevenue)}</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-blue-400"
+                      style={{ width: `${pnlSummary.onlineRatio}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 6. Jaso analysis ─────────────────────────────────────────────── */}
       <div className="bg-surface-800 rounded-xl border border-surface-700 p-5">
         <h3 className="text-sm font-semibold text-white mb-4">자소(증정) 분석</h3>
         {jasoLogs.length === 0 ? (

@@ -3,13 +3,18 @@ import { X } from 'lucide-react';
 
 const emptyForm = {
   name: '',
-  category_id: '',
+  brand: 'SR',
   description: '',
   image_url: '',
   production_cost: '',
   selling_price: '',
   initial_stock: '',
   initial_jaso: '',
+};
+
+const BRAND_CATEGORY_MAP = {
+  SR: '슈퍼레이스',
+  ONE: '오네레이싱',
 };
 
 export default function MdItemModal({ isOpen, onClose, onSave, editItem, categories }) {
@@ -20,7 +25,7 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
     if (editItem) {
       setFormData({
         name: editItem.name || '',
-        category_id: editItem.category_id || '',
+        brand: editItem.brand || 'SR',
         description: editItem.description || '',
         image_url: editItem.image_url || '',
         production_cost: editItem.production_cost ?? '',
@@ -37,12 +42,19 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const getCategoryIdForBrand = (brand) => {
+    const categoryName = BRAND_CATEGORY_MAP[brand];
+    const cat = (categories || []).find((c) => c.name === categoryName);
+    return cat?.id || null;
+  };
+
   const handleSave = () => {
     if (!formData.name.trim()) return;
 
     const payload = {
       name: formData.name.trim(),
-      category_id: formData.category_id || null,
+      brand: formData.brand,
+      category_id: getCategoryIdForBrand(formData.brand),
       description: formData.description.trim() || null,
       image_url: formData.image_url.trim() || null,
       production_cost: formData.production_cost !== '' ? Number(formData.production_cost) : 0,
@@ -106,21 +118,30 @@ export default function MdItemModal({ isOpen, onClose, onSave, editItem, categor
             />
           </div>
 
-          {/* 카테고리 */}
+          {/* 브랜드 */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">카테고리</label>
-            <select
-              value={formData.category_id}
-              onChange={(e) => updateField('category_id', e.target.value)}
-              className={inputClass}
-            >
-              <option value="">카테고리 선택</option>
-              {(categories || []).map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.icon ? `${cat.icon} ` : ''}{cat.name}
-                </option>
+            <label className="block text-sm font-medium text-gray-300 mb-1">브랜드</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'SR', label: '슈퍼레이스', color: 'red' },
+                { value: 'ONE', label: '오네 레이싱', color: 'blue' },
+              ].map((b) => (
+                <button
+                  key={b.value}
+                  type="button"
+                  onClick={() => updateField('brand', b.value)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                    formData.brand === b.value
+                      ? b.color === 'red'
+                        ? 'bg-red-500/15 text-red-400 border-red-500/40'
+                        : 'bg-blue-500/15 text-blue-400 border-blue-500/40'
+                      : 'bg-surface-750 border-surface-700 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {b.label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {/* 설명 */}

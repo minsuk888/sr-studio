@@ -572,27 +572,33 @@ export default function Settings() {
               </div>
             ) : accessLogs.length > 0 ? (
               <div className="space-y-1.5">
-                {accessLogs.map((log) => (
-                  <div key={log.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-surface-700/50 text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400">{formatDate(log.created_at)}</span>
-                      {(log.ip || log.location) && (
-                        <span className="text-gray-500">
-                          {[log.location, log.ip].filter(Boolean).join(' · ')}
+                {accessLogs.map((log) => {
+                  const loginId = log.detail?.split(': ').slice(1).join(': ') || null;
+                  return (
+                    <div key={log.id} className="flex items-center justify-between py-1.5 px-2 rounded bg-surface-700/50 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">{formatDate(log.created_at)}</span>
+                        {loginId && (
+                          <span className="text-white font-medium">{loginId}</span>
+                        )}
+                        {(log.ip || log.location) && (
+                          <span className="text-gray-500">
+                            {[log.location, log.ip].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                      </div>
+                      {log.type === 'login' ? (
+                        <span className="flex items-center gap-1 text-green-400">
+                          <CheckCircle2 className="w-3 h-3" /> 성공
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-red-400">
+                          <XCircle className="w-3 h-3" /> 실패
                         </span>
                       )}
                     </div>
-                    {log.type === 'login' ? (
-                      <span className="flex items-center gap-1 text-green-400">
-                        <CheckCircle2 className="w-3 h-3" /> 성공
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-red-400">
-                        <XCircle className="w-3 h-3" /> 실패
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-xs text-gray-500 text-center py-3">접속 기록이 없습니다.</p>

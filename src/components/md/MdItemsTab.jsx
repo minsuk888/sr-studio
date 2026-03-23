@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Package, Plus, Pencil, Search, Loader, Eye, EyeOff, ShoppingBag, Settings2 } from 'lucide-react';
+import { Package, Plus, Pencil, Search, Loader, Eye, EyeOff, ShoppingBag, LayoutGrid, List } from 'lucide-react';
 import { mdService } from '../../services/mdService';
-import MdCategoryBadge from './MdCategoryBadge';
 import MdStockBadge from './MdStockBadge';
 import MdItemModal from './MdItemModal';
-import MdCategoryModal from './MdCategoryModal';
+import MdItemsListView from './MdItemsListView';
 
 const formatWon = (value) => {
   if (value == null || value === '') return '—';
@@ -22,19 +21,27 @@ const mergeStock = (items, stockSummary) => {
   }));
 };
 
+const getInitialViewMode = () => {
+  try {
+    return localStorage.getItem('md-items-view') || 'grid';
+  } catch {
+    return 'grid';
+  }
+};
+
 export default function MdItemsTab() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState('all');
+  const [viewMode, setViewMode] = useState(getInitialViewMode);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [toggling, setToggling] = useState(null);
-  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -58,11 +65,19 @@ export default function MdItemsTab() {
     loadData();
   }, [loadData]);
 
+  const handleViewMode = (mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('md-items-view', mode);
+    } catch {
+      // ignore
+    }
+  };
+
   const filteredItems = items.filter((item) => {
-    const matchCategory =
-      selectedCategory === 'all' || item.category_id === selectedCategory;
     const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
+    const matchBrand = selectedBrand === 'all' || item.brand === selectedBrand;
+    return matchSearch && matchBrand;
   });
 
   const handleOpenCreate = () => {
@@ -107,15 +122,6 @@ export default function MdItemsTab() {
     }
   };
 
-  const handleCategoryUpdate = async () => {
-    try {
-      const cats = await mdService.getCategories();
-      setCategories(cats || []);
-    } catch (err) {
-      setError('카테고리 갱신에 실패했습니다.');
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -141,13 +147,32 @@ export default function MdItemsTab() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCategoryModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-surface-700 text-gray-400 hover:text-white hover:border-surface-600 text-sm font-medium transition-colors cursor-pointer"
-          >
-            <Settings2 className="w-4 h-4" />
-            카테고리
-          </button>
+          {/* View mode toggle */}
+          <div className="flex items-center rounded-lg border border-surface-700 overflow-hidden">
+            <button
+              onClick={() => handleViewMode('grid')}
+              className={`p-2 transition-colors cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              title="그리드 보기"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleViewMode('list')}
+              className={`p-2 transition-colors cursor-pointer ${
+                viewMode === 'list'
+                  ? 'bg-surface-700 text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+              title="리스트 보기"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer shrink-0"
@@ -158,29 +183,25 @@ export default function MdItemsTab() {
         </div>
       </div>
 
-      {/* Category filter tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        <button
-          onClick={() => setSelectedCategory('all')}
-          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-            selectedCategory === 'all'
-              ? 'bg-red-500 text-white'
-              : 'bg-surface-800 border border-surface-700 text-gray-400 hover:text-gray-200 hover:border-surface-600'
-          }`}
-        >
-          전체
-        </button>
-        {categories.map((cat) => (
+      {/* Brand filter */}
+      <div className="flex items-center gap-2">
+        {[
+          { value: 'all', label: '전체' },
+          { value: 'SR', label: '슈퍼레이스' },
+          { value: 'ONE', label: '오네 레이싱' },
+        ].map((b) => (
           <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
+            key={b.value}
+            onClick={() => setSelectedBrand(b.value)}
             className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-              selectedCategory === cat.id
-                ? 'bg-red-500 text-white'
+              selectedBrand === b.value
+                ? b.value === 'SR' ? 'bg-red-500 text-white'
+                  : b.value === 'ONE' ? 'bg-blue-500 text-white'
+                  : 'bg-red-500 text-white'
                 : 'bg-surface-800 border border-surface-700 text-gray-400 hover:text-gray-200 hover:border-surface-600'
             }`}
           >
-            {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+            {b.label}
           </button>
         ))}
       </div>
@@ -200,15 +221,15 @@ export default function MdItemsTab() {
           </div>
           <div>
             <p className="text-gray-400 font-medium">
-              {searchQuery || selectedCategory !== 'all'
+              {searchQuery || selectedBrand !== 'all'
                 ? '검색 결과가 없습니다'
                 : '등록된 MD 품목이 없습니다'}
             </p>
-            {!searchQuery && selectedCategory === 'all' && (
+            {!searchQuery && selectedBrand === 'all' && (
               <p className="text-gray-600 text-sm mt-1">새 품목을 추가해 보세요</p>
             )}
           </div>
-          {!searchQuery && selectedCategory === 'all' && (
+          {!searchQuery && selectedBrand === 'all' && (
             <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-medium transition-colors cursor-pointer"
@@ -220,8 +241,17 @@ export default function MdItemsTab() {
         </div>
       )}
 
-      {/* Item grid */}
-      {filteredItems.length > 0 && (
+      {/* Items: grid or list */}
+      {filteredItems.length > 0 && viewMode === 'list' && (
+        <MdItemsListView
+          items={filteredItems}
+          onEdit={handleOpenEdit}
+          onToggleActive={handleToggleActive}
+          toggling={toggling}
+        />
+      )}
+
+      {filteredItems.length > 0 && viewMode === 'grid' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((item) => {
             const margin =
@@ -259,9 +289,15 @@ export default function MdItemsTab() {
 
                 {/* Body */}
                 <div className="p-4 space-y-3">
-                  {/* Category + Stock badges */}
+                  {/* Brand + Stock badges */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <MdCategoryBadge category={item.md_categories} />
+                    {item.brand && (
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        item.brand === 'SR' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                      }`}>
+                        {item.brand === 'SR' ? 'SR' : 'ONE'}
+                      </span>
+                    )}
                     <MdStockBadge stock={item.current_stock} />
                   </div>
 
@@ -293,7 +329,16 @@ export default function MdItemsTab() {
                       </p>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-surface-700/50">
-                      <span className="text-gray-500">마진</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-500">마진</span>
+                        {margin != null && item.selling_price > 0 && (
+                          <span className={`text-[10px] font-bold ${
+                            margin >= 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {Math.round((margin / item.selling_price) * 100)}%
+                          </span>
+                        )}
+                      </div>
                       <p
                         className={`font-medium ${
                           margin == null
@@ -305,6 +350,14 @@ export default function MdItemsTab() {
                       >
                         {margin != null ? formatWon(margin) : '—'}
                       </p>
+                      {margin != null && item.selling_price > 0 && (
+                        <div className="w-full h-1 rounded-full bg-surface-700 mt-1 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${margin >= 0 ? 'bg-green-400' : 'bg-red-400'}`}
+                            style={{ width: `${Math.min(Math.max(Math.round((margin / item.selling_price) * 100), 0), 100)}%` }}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -339,19 +392,13 @@ export default function MdItemsTab() {
         </div>
       )}
 
-      {/* Modals */}
+      {/* Modal */}
       <MdItemModal
         isOpen={modalOpen}
         onClose={handleCloseModal}
         onSave={handleSave}
         editItem={editItem}
         categories={categories}
-      />
-      <MdCategoryModal
-        isOpen={categoryModalOpen}
-        onClose={() => setCategoryModalOpen(false)}
-        categories={categories}
-        onUpdate={handleCategoryUpdate}
       />
     </div>
   );

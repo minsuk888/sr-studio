@@ -23,6 +23,7 @@ const INITIAL_FORM = {
   unitPrice: '',
   jasoDestination: '',
   jasoPurpose: '',
+  saleChannel: 'offline',
 };
 
 export default function MdLogModal({ isOpen, onClose, onSave, items }) {
@@ -96,6 +97,7 @@ export default function MdLogModal({ isOpen, onClose, onSave, items }) {
       unit_price: form.unitPrice !== '' ? Number(form.unitPrice) : null,
       log_date: form.date,
       memo: form.memo.trim() || null,
+      sale_channel: form.logType === 'sale' ? form.saleChannel : null,
       jaso_destination: form.logType === 'jaso' ? form.jasoDestination.trim() : null,
       jaso_purpose: form.logType === 'jaso' ? form.jasoPurpose : null,
     };
@@ -222,6 +224,32 @@ export default function MdLogModal({ isOpen, onClose, onSave, items }) {
                   </span>
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Sale-only: channel */}
+          {form.logType === 'sale' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1.5">판매 채널</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'offline', label: '현장 판매' },
+                  { value: 'online', label: '온라인(스마트스토어)' },
+                ].map((ch) => (
+                  <button
+                    key={ch.value}
+                    type="button"
+                    onClick={() => handleChange('saleChannel', ch.value)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      form.saleChannel === ch.value
+                        ? 'bg-green-500/15 text-green-400 border-green-500/40'
+                        : 'bg-surface-750 border-surface-700 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {ch.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

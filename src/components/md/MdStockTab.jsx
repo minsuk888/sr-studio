@@ -11,7 +11,6 @@ import {
 } from 'recharts';
 import { Package, Boxes, AlertTriangle, XCircle, Loader, Gift } from 'lucide-react';
 import { mdService } from '../../services/mdService';
-import MdCategoryBadge from './MdCategoryBadge';
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -81,8 +80,7 @@ function StockStatusDot({ level }) {
 
 export default function MdStockTab() {
   const [stockSummary, setStockSummary] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [selectedBrand, setSelectedBrand] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -94,13 +92,9 @@ export default function MdStockTab() {
       setLoading(true);
       setError(null);
       try {
-        const [summary, cats] = await Promise.all([
-          mdService.getStockSummary(),
-          mdService.getCategories(),
-        ]);
+        const summary = await mdService.getStockSummary();
         if (!cancelled) {
           setStockSummary(summary || []);
-          setCategories(cats || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -130,18 +124,13 @@ export default function MdStockTab() {
     return { totalItems, lowStock, outOfStock, totalQuantity, totalJaso };
   }, [activeItems]);
 
-  // category map for badge rendering
-  const categoryMap = useMemo(() => {
-    return (categories || []).reduce((acc, cat) => ({ ...acc, [cat.id]: cat }), {});
-  }, [categories]);
-
   // filtered + sorted rows
   const filteredItems = useMemo(() => {
-    const base = selectedCategoryId
-      ? activeItems.filter((s) => String(s.category_id) === String(selectedCategoryId))
+    const base = selectedBrand !== 'all'
+      ? activeItems.filter((s) => s.brand === selectedBrand)
       : activeItems;
     return [...base].sort((a, b) => (a.current_stock ?? 0) - (b.current_stock ?? 0));
-  }, [activeItems, selectedCategoryId]);
+  }, [activeItems, selectedBrand]);
 
   // chart: top 10 by current_stock (sorted ascending = problems visible)
   const chartData = useMemo(() => {
@@ -214,38 +203,25 @@ export default function MdStockTab() {
         />
       </div>
 
-      {/* ── 2. Category filter ────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCategoryId(null)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-            selectedCategoryId === null
-              ? 'bg-red-500 text-white'
-              : 'bg-surface-700 text-gray-400 hover:text-white'
-          }`}
-        >
-          전체
-        </button>
-        {categories.map((cat) => (
+      {/* ── 2. Brand filter ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        {[
+          { value: 'all', label: '전체' },
+          { value: 'SR', label: '슈퍼레이스' },
+          { value: 'ONE', label: '오네 레이싱' },
+        ].map((b) => (
           <button
-            key={cat.id}
-            onClick={() =>
-              setSelectedCategoryId((prev) =>
-                String(prev) === String(cat.id) ? null : cat.id,
-              )
-            }
-            className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-            style={
-              String(selectedCategoryId) === String(cat.id)
-                ? { backgroundColor: cat.color, color: '#fff' }
-                : {
-                    backgroundColor: `${cat.color}20`,
-                    color: cat.color,
-                  }
-            }
+            key={b.value}
+            onClick={() => setSelectedBrand(b.value)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              selectedBrand === b.value
+                ? b.value === 'SR' ? 'bg-red-500 text-white'
+                  : b.value === 'ONE' ? 'bg-blue-500 text-white'
+                  : 'bg-red-500 text-white'
+                : 'bg-surface-700 text-gray-400 hover:text-white'
+            }`}
           >
-            {cat.icon && <span className="mr-1">{cat.icon}</span>}
-            {cat.name}
+            {b.label}
           </button>
         ))}
       </div>
@@ -259,8 +235,8 @@ export default function MdStockTab() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
                   품목
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
-                  카테고리
+                <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
+                  브랜드
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
                   초기재고
@@ -273,6 +249,9 @@ export default function MdStockTab() {
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
                   현재재고
+                </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap tabular-nums">
+                  소진율
                 </th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-gray-400 whitespace-nowrap">
                   상태
@@ -304,7 +283,6 @@ export default function MdStockTab() {
                       : level === 'low'
                       ? 'text-yellow-400'
                       : 'text-red-400';
-                  const category = categoryMap[item.category_id];
 
                   return (
                     <tr
@@ -314,8 +292,14 @@ export default function MdStockTab() {
                       <td className="px-4 py-3 text-white font-medium whitespace-nowrap">
                         {item.name}
                       </td>
-                      <td className="px-4 py-3">
-                        <MdCategoryBadge category={category} />
+                      <td className="px-4 py-3 text-center">
+                        {item.brand && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            item.brand === 'SR' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {item.brand === 'SR' ? 'SR' : 'ONE'}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right text-gray-300 tabular-nums">
                         {(item.initial_stock ?? 0).toLocaleString('ko-KR')}
@@ -328,6 +312,31 @@ export default function MdStockTab() {
                       </td>
                       <td className={`px-4 py-3 text-right font-bold tabular-nums ${stockColor}`}>
                         {(item.current_stock ?? 0).toLocaleString('ko-KR')}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {(() => {
+                          const initial = (item.initial_stock ?? 0) + (item.total_inbound ?? 0);
+                          const sold = item.total_sold ?? 0;
+                          if (initial <= 0) return <span className="text-gray-500">-</span>;
+                          const rate = Math.round((sold / initial) * 100);
+                          return (
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-12 h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    rate >= 80 ? 'bg-red-400' : rate >= 50 ? 'bg-yellow-400' : 'bg-green-400'
+                                  }`}
+                                  style={{ width: `${Math.min(rate, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-medium ${
+                                rate >= 80 ? 'text-red-400' : rate >= 50 ? 'text-yellow-400' : 'text-green-400'
+                              }`}>
+                                {rate}%
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <StockStatusDot level={level} />
